@@ -1,21 +1,27 @@
 {
   "name": "microservice-architect",
   "module": "src/index.ts",
+  "bin": {
+    "microservice-architect": "./dist/cli.js"
+  },
   "scripts": {
-    "start": "bun run src/index.ts"
+    "start": "tsx src/index.ts",
+    "cli": "tsx src/cli.ts",
+    "build": "tsc",
+    "dev": "tsx src/cli.ts"
   },
   "type": "module",
   "private": true,
   "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
+    "@types/node": "^20",
+    "tsx": "^4.7.0",
     "typescript": "^5"
   },
   "dependencies": {
+    "@clack/prompts": "^0.10.1",
     "@langchain/core": "^1.1.8",
     "@langchain/openai": "^1.2.0",
     "langchain": "^1.2.3",
     "zod": "^3.22.4"
   }
-}"
+}
