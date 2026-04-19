@@ -1,174 +1,236 @@
-#!/usr/bin/env node
-import {
-  intro,
-  outro,
-  text,
-  select,
-  confirm,
-  spinner,
-  isCancel,
-  cancel,
-} from "@clack/prompts";
+#!/usr/bin/env bun
+import * as p from "@clack/prompts";
 import * as path from "path";
 import { MicroserviceArchitectAgent } from "./agents/MicroserviceArchitectAgent";
-import * as fs from "fs";
+import { setTimeout } from "timers/promises";
+
+// Spinner animation
+const sleep = (ms: number) => setTimeout(ms);
 
 async function main() {
-  intro("🏗️  Microservice Architect Agent");
+  console.clear();
+  
+  p.intro(`
+╔══════════════════════════════════════════════════════════╗
+║                                                          ║
+║   🏗️  Microservice Architect Agent                      ║
+║   Analyze and document your microservice architecture    ║
+║                                                          ║
+╚══════════════════════════════════════════════════════════╝
+  `);
 
-  // Menu principal
-  const action = await select({
-    message: "What would you like to do?",
-    options: [
-      { value: "full", label: "🔍 Run full analysis" },
-      { value: "service", label: "📦 Analyze single service" },
-      { value: "dependencies", label: "🔗 Map dependencies" },
-      { value: "docs", label: "📝 Generate documentation" },
-    ],
-  });
-
-  if (isCancel(action)) {
-    cancel("Operation cancelled");
-    process.exit(0);
-  }
-
-  // Input do caminho do projeto
-  const projectPath = await text({
-    message: "Enter the project root path",
-    placeholder: "./my-microservices",
-    validate(value) {
-      if (!value) return "Path is required";
-      if (!fs.existsSync(value)) return "Path does not exist";
-      return undefined;
-    },
-  });
-
-  if (isCancel(projectPath)) {
-    cancel("Operation cancelled");
-    process.exit(0);
-  }
-
-  // Input do caminho de saída (para algumas ações)
-  let outputPath: string | symbol = "";
-  if (action === "full" || action === "docs") {
-    outputPath = await text({
-      message: "Enter the output directory for documentation",
-      placeholder: "./docs",
-      defaultValue: "./docs",
+  // Check for API Key
+  if (!process.env.LLM_API_KEY) {
+    p.note("⚠️  LLM_API_KEY not set. Please set it before running.", "Warning");
+    const shouldContinue = await p.confirm({
+      message: "Continue anyway? (Analysis will fail)",
+      initialValue: false,
     });
-
-    if (isCancel(outputPath)) {
-      cancel("Operation cancelled");
+    
+    if (!shouldContinue || p.isCancel(shouldContinue)) {
+      p.outro("Goodbye! 👋");
       process.exit(0);
     }
   }
 
-  // Confirmação
-  const shouldContinue = await confirm({
-    message: `Ready to ${action}?`,
+  // Get workspace path
+  const workspacePath = await p.text({
+    message: "Enter the path to your microservices workspace:",
+    placeholder: "./my-microservices",
+    validate: (value) => {
+      if (!value) return "Please enter a path";
+      return undefined;
+    },
   });
 
-  if (isCancel(shouldContinue) || !shouldContinue) {
-    cancel("Operation cancelled");
+  if (p.isCancel(workspacePath)) {
+    p.outro("Goodbye! 👋");
     process.exit(0);
   }
 
-  // Inicializa o agente
-  const agent = new MicroserviceArchitectAgent();
-  const s = spinner();
+  const absoluteWorkspacePath = path.resolve(workspacePath as string);
 
+  // Get output path
+  const outputPath = await p.text({
+    message: "Where should the documentation be saved?",
+    placeholder: "./docs/architecture",
+    initialValue: "./docs/architecture",
+    validate: (value) => {
+      if (!value) return "Please enter an output path";
+      return undefined;
+    },
+  });
+
+  if (p.isCancel(outputPath)) {
+    p.outro("Goodbye! 👋");
+    process.exit(0);
+  }
+
+  const absoluteOutputPath = path.resolve(outputPath as string);
+
+  // Analysis type selection
+  const analysisType = await p.select({
+    message: "What type of analysis do you want to perform?",
+    options: [
+      { value: "full", label: "🔍 Full Analysis", hint: "Complete workspace + dependencies + docs" },
+      { value: "workspace", label: "📁 Workspace Scan", hint: "Just discover services" },
+      { value: "dependencies", label: "🔗 Dependencies", hint: "Map service connections" },
+      { value: "documentation", label: "📝 Documentation", hint: "Generate markdown docs" },
+    ],
+  });
+
+  if (p.isCancel(analysisType)) {
+    p.outro("Goodbye! 👋");
+    process.exit(0);
+  }
+
+  // Confirm
+  const confirmed = await p.confirm({
+    message: `Analyze ${absoluteWorkspacePath} and save docs to ${absoluteOutputPath}?`,
+  });
+
+  if (!confirmed || p.isCancel(confirmed)) {
+    p.outro("Cancelled. Goodbye! 👋");
+    process.exit(0);
+  }
+
+  // Start analysis
+  const s = p.spinner();
+  
   try {
-    switch (action) {
-      case "full": {
-        s.start("Running full analysis...");
-        const result = await agent.runFullAnalysis(
-          path.resolve(projectPath as string),
-          path.resolve(outputPath as string)
-        );
-        s.stop("✅ Analysis complete!");
+    const agent = new MicroserviceArchitectAgent();
 
-        console.log("\n📊 Results:");
-        console.log(`Services analyzed: ${Object.keys(result.services).length}`);
-        console.log(`Dependencies mapped: ${Object.keys(result.dependencies || {}).length}`);
-        console.log(`Documentation: ${result.documentation ? "Generated" : "Not generated"}`);
-        break;
+    if (analysisType === "workspace") {
+      s.start("🔍 Scanning workspace for services...");
+      await sleep(500);
+      
+      const workspace = await agent.analyzeWorkspace(absoluteWorkspacePath);
+      s.stop("✅ Workspace scan complete!");
+
+      if (workspace) {
+        p.note(`
+📊 Workspace Summary:
+• Found ${workspace.totalServices} services
+• Languages: ${Object.keys(workspace.summary.languages).join(", ")}
+• Databases: ${workspace.summary.databases.join(", ") || "None detected"}
+• Message Queues: ${workspace.summary.messageQueues.join(", ") || "None detected"}
+        `, "Results");
+
+        // Show services table
+        const serviceTable = workspace.services
+          .map((s: any) => `  ${s.name.padEnd(20)} | ${s.language}`)
+          .join("\n");
+        p.note(serviceTable, "Services Found");
+      }
+    } else if (analysisType === "full") {
+      s.start("🚀 Starting full architecture analysis...");
+      await sleep(500);
+
+      s.message("📁 Analyzing workspace...");
+      const workspace = await agent.analyzeWorkspace(absoluteWorkspacePath);
+      
+      if (!workspace || workspace.totalServices === 0) {
+        s.stop("⚠️ No services found in workspace");
+        p.outro("Analysis complete. No services detected.");
+        process.exit(0);
       }
 
-      case "service": {
-        s.start("Analyzing service...");
-        const result = await agent.analyzeService(path.resolve(projectPath as string));
-        s.stop("✅ Service analyzed!");
-
-        if (result) {
-          console.log("\n📦 Service Details:");
-          console.log(JSON.stringify(result, null, 2));
-        }
-        break;
+      s.message(`🔍 Found ${workspace.totalServices} services. Analyzing in detail...`);
+      
+      // Show progress
+      let analyzed = 0;
+      const total = workspace.totalServices;
+      
+      for (const service of workspace.services) {
+        analyzed++;
+        s.message(`🔍 Analyzing ${service.name} (${analyzed}/${total})...`);
+        await agent.analyzeService(service.path);
+        await sleep(200); // Simulate processing
       }
 
-      case "dependencies": {
-        s.start("Mapping dependencies...");
-        const result = await agent.mapDependencies(path.resolve(projectPath as string));
-        s.stop("✅ Dependencies mapped!");
+      s.message("🔗 Mapping dependencies between services...");
+      const dependencies = await agent.mapDependencies(absoluteWorkspacePath);
+      await sleep(500);
 
-        if (result) {
-          console.log("\n🔗 Dependencies:");
-          console.log(JSON.stringify(result, null, 2));
-        }
-        break;
+      s.message("📝 Generating documentation...");
+      const docs = await agent.generateDocumentation(
+        absoluteOutputPath,
+        {},
+        dependencies || {}
+      );
+      await sleep(500);
+
+      s.stop("✅ Analysis complete!");
+
+      // Results
+      p.note(`
+📊 Analysis Results:
+• Services analyzed: ${workspace.totalServices}
+• Languages: ${Object.keys(workspace.summary.languages).join(", ")}
+• HTTP connections: ${dependencies?.summary?.httpConnections || 0}
+• Documentation files: ${docs?.generatedFiles?.length || 0}
+      `, "Summary");
+
+      if (docs?.generatedFiles) {
+        const filesList = docs.generatedFiles
+          .map((f: string) => `  📄 ${f}`)
+          .join("\n");
+        p.note(filesList, "Generated Documentation");
       }
 
-      case "docs": {
-        // Para docs precisamos de dados existentes
-        s.start("Loading existing analysis data...");
-        const services: Record<string, any> = {};
-        const serviceDirs = fs
-          .readdirSync(projectPath as string, { withFileTypes: true })
-          .filter((e) => e.isDirectory() && !e.name.startsWith(".") && e.name !== "node_modules")
-          .map((e) => path.join(projectPath as string, e.name))
-          .filter((dir) => {
-            return (
-              fs.existsSync(path.join(dir, "package.json")) ||
-              fs.existsSync(path.join(dir, "Dockerfile")) ||
-              fs.existsSync(path.join(dir, "src")) ||
-              fs.existsSync(path.join(dir, "docker-compose.yml"))
-            );
-          });
+      p.success(`Documentation saved to: ${absoluteOutputPath}`);
+    } else if (analysisType === "dependencies") {
+      s.start("🔗 Mapping service dependencies...");
+      await sleep(500);
 
-        for (const servicePath of serviceDirs.slice(0, 3)) {
-          // Limita a 3 serviços para docs
-          const analysis = await agent.analyzeService(servicePath);
-          if (analysis) {
-            services[path.basename(servicePath)] = analysis;
-          }
+      const dependencies = await agent.mapDependencies(absoluteWorkspacePath);
+      s.stop("✅ Dependency mapping complete!");
+
+      if (dependencies) {
+        p.note(`
+🔗 Dependency Summary:
+• Total services: ${dependencies.summary.totalServices}
+• HTTP connections: ${dependencies.summary.httpConnections}
+• Services with database: ${dependencies.summary.servicesWithDatabase}
+• Services with messaging: ${dependencies.summary.servicesWithMessaging}
+        `, "Dependencies");
+
+        if (dependencies.dependencyGraph?.edges?.length > 0) {
+          const connections = dependencies.dependencyGraph.edges
+            .map((e: any) => `  ${e.from} → ${e.to} (${e.type})`)
+            .join("\n");
+          p.note(connections, "Service Connections");
         }
+      }
+    } else if (analysisType === "documentation") {
+      s.start("📝 Generating documentation...");
+      await sleep(500);
 
-        const dependencies = await agent.mapDependencies(path.resolve(projectPath as string));
-        s.stop("✅ Data loaded!");
+      const docs = await agent.generateDocumentation(
+        absoluteOutputPath,
+        {},
+        {}
+      );
+      s.stop("✅ Documentation generated!");
 
-        s.start("Generating documentation...");
-        const result = await agent.generateDocumentation(
-          path.resolve(outputPath as string),
-          services,
-          dependencies || {}
-        );
-        s.stop("✅ Documentation generated!");
-
-        console.log("\n📝 Documentation:");
-        console.log(JSON.stringify(result, null, 2));
-        break;
+      if (docs?.generatedFiles) {
+        const filesList = docs.generatedFiles
+          .map((f: string) => `  📄 ${f}`)
+          .join("\n");
+        p.note(filesList, "Generated Files");
       }
     }
 
-    outro("🎉 All done! Check the output for results.");
+    p.outro(`
+╔══════════════════════════════════════════════════════════╗
+║                    Analysis Complete! 🎉                  ║
+╚══════════════════════════════════════════════════════════╝
+    `);
   } catch (error) {
-    s.stop("❌ Error occurred");
-    console.error(error);
+    s.stop("❌ Analysis failed");
+    p.note(String(error), "Error");
     process.exit(1);
   }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+main();
