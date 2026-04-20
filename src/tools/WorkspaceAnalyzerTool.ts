@@ -2,10 +2,18 @@ import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
 import * as fs from "fs";
 import * as path from "path";
+import {
+  detectDatabases,
+  detectLanguageWithDetails,
+  isServiceDirectoryWithDetails,
+  detectDatabaseTechnologies,
+} from "./StackDetectionTool.js";
 
 /**
  * WorkspaceAnalyzerTool - Analyzes a workspace directory containing multiple microservices
  * Detects service directories and analyzes each one
+ * 
+ * Uses StackDetectionTool for centralized stack detection logic
  */
 export const WorkspaceAnalyzerTool = new DynamicStructuredTool({
   name: "analyze_workspace",
@@ -30,32 +38,7 @@ export const WorkspaceAnalyzerTool = new DynamicStructuredTool({
         },
       };
 
-      // Helper function to detect if a directory is a service
-      const isServiceDirectory = (dir: string): boolean => {
-        const indicators = [
-          "package.json",
-          "requirements.txt",
-          "go.mod",
-          "pom.xml",
-          "Dockerfile",
-          "docker-compose.yml",
-          "src",
-        ];
-        return indicators.some((indicator) =>
-          fs.existsSync(path.join(dir, indicator))
-        );
-      };
-
-      // Helper function to detect service language
-      const detectLanguage = (dir: string): string => {
-        if (fs.existsSync(path.join(dir, "package.json"))) return "Node.js";
-        if (fs.existsSync(path.join(dir, "requirements.txt"))) return "Python";
-        if (fs.existsSync(path.join(dir, "go.mod"))) return "Go";
-        if (fs.existsSync(path.join(dir, "pom.xml"))) return "Java";
-        return "Unknown";
-      };
-
-      // Scan workspace for services
+      // Scan workspace for services using centralized detection
       const scanWorkspace = (dir: string, depth: number = 0) => {
         if (depth > 2) return; // Limit recursion depth
 
@@ -67,22 +50,25 @@ export const WorkspaceAnalyzerTool = new DynamicStructuredTool({
           const fullPath = path.join(dir, entry.name);
           
           if (entry.isDirectory()) {
-            if (isServiceDirectory(fullPath)) {
-              // Found a service
-              const serviceName = entry.name;
-              const language = detectLanguage(fullPath);
+            // Use centralized service detection
+            const serviceCheck = isServiceDirectoryWithDetails(fullPath);
+            
+            if (serviceCheck.isService) {
+              // Found a service - use centralized language detection
+              const languageInfo = detectLanguageWithDetails(fullPath);
               
               const serviceInfo = {
-                name: serviceName,
+                name: entry.name,
                 path: fullPath,
-                language,
+                language: languageInfo.name || "Unknown",
+                runtime: languageInfo.runtime || "Unknown",
                 relativePath: path.relative(workspacePath, fullPath),
               };
               
               result.services.push(serviceInfo);
               
               // Update summary
-              result.summary.languages[language] = (result.summary.languages[language] || 0) + 1;
+              result.summary.languages[serviceInfo.language] = (result.summary.languages[serviceInfo.language] || 0) + 1;
               result.totalServices++;
             } else {
               // Recurse into subdirectories
@@ -94,35 +80,93 @@ export const WorkspaceAnalyzerTool = new DynamicStructuredTool({
 
       scanWorkspace(workspacePath);
 
-      // Analyze each service in detail
+      // Analyze each service in detail using centralized detection
       for (const service of result.services) {
-        // Check for databases
+        // Check for databases using centralized detection
         const dockerComposePath = path.join(service.path, "docker-compose.yml");
-        if (fs.existsSync(dockerComposePath)) {
-          const content = fs.readFileSync(dockerComposePath, "utf-8");
-          if (content.includes("postgres") && !result.summary.databases.includes("PostgreSQL")) {
-            result.summary.databases.push("PostgreSQL");
-          }
-          if (content.includes("mysql") && !result.summary.databases.includes("MySQL")) {
-            result.summary.databases.push("MySQL");
-          }
-          if (content.includes("mongo") && !result.summary.databases.includes("MongoDB")) {
-            result.summary.databases.push("MongoDB");
-          }
-          if (content.includes("redis") && !result.summary.databases.includes("Redis")) {
-            result.summary.databases.push("Redis");
+        const dockerComposeYamlPath = path.join(service.path, "docker-compose.yaml");
+        
+        for (const composePath of [dockerComposePath, dockerComposeYamlPath]) {
+          if (fs.existsSync(composePath)) {
+            try {
+              const content = fs.readFileSync(composePath, "utf-8");
+              
+              // Use centralized database detection
+              const detectedDbs = detectDatabases(content);
+              const detectedQueues = detectDatabases(content);
+              
+              for (const db of detectedDbs) {
+                if (!result.summary.databases.includes(db)) {
+                  result.summary.databases.push(db);
+                }
+              }
+              
+              // Check for message queues
+              const queueKeywords = ["kafka", "rabbitmq", "redis", "bull", "bullmq", "amqp"];
+              const lowerContent = content.toLowerCase();
+              for (const queue of queueKeywords) {
+                if (lowerContent.includes(queue)) {
+                  const queueName = queue.charAt(0).toUpperCase() + queue.slice(1);
+                  if (!result.summary.messageQueues.includes(queueName) && 
+                      !["PostgreSQL", "MySQL", "MongoDB", "Redis"].includes(queueName)) {
+                    if (queue === "rabbitmq") {
+                      if (!result.summary.messageQueues.includes("RabbitMQ")) {
+                        result.summary.messageQueues.push("RabbitMQ");
+                      }
+                    } else if (queue === "kafka") {
+                      if (!result.summary.messageQueues.includes("Kafka")) {
+                        result.summary.messageQueues.push("Kafka");
+                      }
+                    } else if (queue === "bull" || queue === "bullmq") {
+                      if (!result.summary.messageQueues.includes("Bull Queue")) {
+                        result.summary.messageQueues.push("Bull Queue");
+                      }
+                    }
+                  }
+                }
+              }
+            } catch {
+              // Ignore read errors
+            }
+            break;
           }
         }
 
-        // Check for message queues
+        // Check for message queues in package.json using centralized detection
         const packageJsonPath = path.join(service.path, "package.json");
         if (fs.existsSync(packageJsonPath)) {
-          const content = fs.readFileSync(packageJsonPath, "utf-8");
-          if (content.includes("kafka") && !result.summary.messageQueues.includes("Kafka")) {
-            result.summary.messageQueues.push("Kafka");
-          }
-          if (content.includes("rabbitmq") && !result.summary.messageQueues.includes("RabbitMQ")) {
-            result.summary.messageQueues.push("RabbitMQ");
+          try {
+            const content = fs.readFileSync(packageJsonPath, "utf-8");
+            const pkg = JSON.parse(content);
+            const dbTech = detectDatabaseTechnologies(pkg);
+            
+            // Add ORMs to the service info
+            if (dbTech.orms.length > 0) {
+              service.orms = dbTech.orms;
+            }
+            
+            // Check for message queues
+            const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+            const queueDeps = Object.keys(deps).filter(dep => 
+              dep.includes("kafka") || dep.includes("rabbitmq") || 
+              dep.includes("bull") || dep.includes("amqp")
+            );
+            
+            for (const dep of queueDeps) {
+              const lowerDep = dep.toLowerCase();
+              if (lowerDep.includes("kafka") && !result.summary.messageQueues.includes("Kafka")) {
+                result.summary.messageQueues.push("Kafka");
+              }
+              if ((lowerDep.includes("rabbitmq") || lowerDep.includes("amqp")) && 
+                  !result.summary.messageQueues.includes("RabbitMQ")) {
+                result.summary.messageQueues.push("RabbitMQ");
+              }
+              if (lowerDep.includes("bull") && !result.summary.messageQueues.includes("Bull Queue")) {
+                result.summary.messageQueues.push("Bull Queue");
+              }
+            }
+          } catch {
+            // Ignore parse errors
           }
         }
       }
@@ -136,6 +180,7 @@ export const WorkspaceAnalyzerTool = new DynamicStructuredTool({
 
 /**
  * BatchServiceAnalyzerTool - Analyzes multiple services in batch
+ * Uses StackDetectionTool for centralized detection
  */
 export const BatchServiceAnalyzerTool = new DynamicStructuredTool({
   name: "analyze_services_batch",
@@ -158,32 +203,53 @@ export const BatchServiceAnalyzerTool = new DynamicStructuredTool({
         try {
           const serviceName = path.basename(servicePath);
           
+          // Use centralized service detection
+          const serviceCheck = isServiceDirectoryWithDetails(servicePath);
+          
+          // Use centralized language detection
+          const languageInfo = detectLanguageWithDetails(servicePath);
+          
           // Basic analysis
           const analysis = {
             name: serviceName,
             path: servicePath,
             exists: fs.existsSync(servicePath),
             isDirectory: fs.statSync(servicePath).isDirectory(),
+            isService: serviceCheck.isService,
+            language: languageInfo.name || "Unknown",
+            runtime: languageInfo.runtime || "Unknown",
             techStack: [] as string[],
             hasDockerfile: fs.existsSync(path.join(servicePath, "Dockerfile")),
-            hasDockerCompose: fs.existsSync(path.join(servicePath, "docker-compose.yml")),
+            hasDockerCompose: fs.existsSync(path.join(servicePath, "docker-compose.yml")) ||
+                            fs.existsSync(path.join(servicePath, "docker-compose.yaml")),
             hasTests: fs.existsSync(path.join(servicePath, "tests")) || 
                       fs.existsSync(path.join(servicePath, "__tests__")),
             hasCI: fs.existsSync(path.join(servicePath, ".github", "workflows")),
           };
 
-          // Detect tech stack
-          if (fs.existsSync(path.join(servicePath, "package.json"))) {
-            analysis.techStack.push("Node.js");
-          }
-          if (fs.existsSync(path.join(servicePath, "requirements.txt"))) {
-            analysis.techStack.push("Python");
-          }
-          if (fs.existsSync(path.join(servicePath, "go.mod"))) {
-            analysis.techStack.push("Go");
-          }
-          if (fs.existsSync(path.join(servicePath, "pom.xml"))) {
-            analysis.techStack.push("Java");
+          // Detect tech stack using centralized detection
+          if (serviceCheck.isService) {
+            if (languageInfo.name) {
+              analysis.techStack.push(languageInfo.name);
+            }
+            
+            // Check for specific frameworks
+            const packageJsonPath = path.join(servicePath, "package.json");
+            if (fs.existsSync(packageJsonPath)) {
+              try {
+                const pkg = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8"));
+                const dbTech = detectDatabaseTechnologies(pkg);
+                
+                if (dbTech.orms.length > 0) {
+                  analysis.techStack.push(...dbTech.orms);
+                }
+                if (dbTech.databases.length > 0) {
+                  analysis.techStack.push(...dbTech.databases);
+                }
+              } catch {
+                // Ignore parse errors
+              }
+            }
           }
 
           results.services.push(analysis);
