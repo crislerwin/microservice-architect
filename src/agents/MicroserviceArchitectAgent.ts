@@ -1,3 +1,4 @@
+import { ProfessionalDocumenterTool } from "@/tools/ProfessionalDocumenterTool.ts";
 import { ChatOpenAI } from "@langchain/openai";
 import {
   type BaseMessage,
@@ -30,6 +31,7 @@ export class MicroserviceArchitectAgent {
     ServiceAnalyzerTool,
     DependencyMapperTool,
     ArchitectureDocumenterTool,
+    ProfessionalDocumenterTool,
     WorkspaceAnalyzerTool,
     BatchServiceAnalyzerTool,
     GraphQLAnalyzerTool,
@@ -186,27 +188,42 @@ export class MicroserviceArchitectAgent {
     const services: Record<string, any> = {};
     const servicePaths = workspaceAnalysis.services.map((s: any) => s.path);
     
-    // Analyze in batches for efficiency
-    const batchSize = 5;
-    for (let i = 0; i < servicePaths.length; i += batchSize) {
-      const batch = servicePaths.slice(i, i + batchSize);
-      const batchResults = await this.analyzeServicesBatch(batch);
+    console.log(`🔍 Analyzing ${servicePaths.length} services individually...`);
+    
+    // Analyze each service individually (more reliable than batch)
+    for (const servicePath of servicePaths) {
+      const serviceName = path.basename(servicePath);
+      console.log(`  Analyzing ${serviceName}...`);
       
-      if (batchResults) {
-        batchResults.services.forEach((service: any) => {
-          services[service.name] = service;
-        });
+      const serviceData = await this.analyzeService(servicePath);
+      if (serviceData) {
+        services[serviceName] = serviceData;
+        console.log(`    ✓ Found: ${serviceName}`);
+      } else {
+        // Fallback: create basic service info
+        services[serviceName] = {
+          name: serviceName,
+          path: servicePath,
+          description: "Service detected in workspace",
+          techStack: ["Unknown"],
+          databases: [],
+          endpoints: [],
+        };
+        console.log(`    ⚠ Basic info for: ${serviceName}`);
       }
     }
+    
+    console.log(`✅ Analyzed ${Object.keys(services).length} services`);
 
     // Step 3: Map dependencies
     const dependencies = await this.mapDependencies(projectRoot);
 
     // Step 4: Generate documentation
-    const docs = await this.generateDocumentation(
+    const docs = await this.generateProfessionalDocumentation(
       outputPath,
       services,
-      dependencies || {}
+      dependencies || {},
+      projectRoot
     );
 
     return {
