@@ -174,8 +174,8 @@ function scanForDatabaseConnections(servicePath: string): string[] {
       sequelize: "Sequelize",
       knex: "Knex.js",
       "@elastic/elasticsearch": "Elasticsearch",
-      cassandra-driver: "Cassandra",
-      neo4j-driver: "Neo4j",
+      "cassandra-driver": "Cassandra",
+      "neo4j-driver": "Neo4j",
       influx: "InfluxDB",
     };
 

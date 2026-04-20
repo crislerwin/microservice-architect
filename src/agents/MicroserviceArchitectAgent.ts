@@ -96,6 +96,25 @@ export class MicroserviceArchitectAgent {
     return null;
   }
 
+  async generateProfessionalDocumentation(
+    outputPath: string,
+    servicesData: object,
+    dependenciesData: object,
+    projectRoot: string
+  ) {
+    console.log(`📝 Generating professional architecture documentation...`);
+
+    const args = {
+      outputPath,
+      projectPath: projectRoot,
+      servicesData: JSON.stringify(servicesData),
+      dependenciesData: JSON.stringify(dependenciesData),
+    };
+
+    const output = await ProfessionalDocumenterTool.invoke(args);
+    return JSON.parse(output);
+  }
+
   async generateDocumentation(
     outputPath: string,
     servicesData: object,
