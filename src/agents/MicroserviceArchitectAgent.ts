@@ -11,6 +11,11 @@ import {
   WorkspaceAnalyzerTool,
   BatchServiceAnalyzerTool,
 } from "@/tools/WorkspaceAnalyzerTool.ts";
+import {
+  GraphQLAnalyzerTool,
+  FederationMapperTool,
+  DatabaseSchemaAnalyzer,
+} from "@/tools/GraphQLAnalyzerTool.ts";
 
 /**
  * MicroserviceArchitectAgent - An AI agent that analyzes microservice architectures
@@ -27,6 +32,9 @@ export class MicroserviceArchitectAgent {
     ArchitectureDocumenterTool,
     WorkspaceAnalyzerTool,
     BatchServiceAnalyzerTool,
+    GraphQLAnalyzerTool,
+    FederationMapperTool,
+    DatabaseSchemaAnalyzer,
   ];
   private modelWithTools;
 
