@@ -16,11 +16,21 @@ An AI-powered agent that analyzes microservice architectures and generates compr
   - Message queue pub/sub patterns
   - External service integrations
 
-- **📝 Documentation Generation**: Creates markdown documentation:
-  - Architecture overview with Mermaid diagrams
-  - Service catalog with technical details
-  - API endpoint documentation
-  - Dependency matrix
+- **📊 C4 Model Documentation**: Generates professional architecture diagrams:
+  - System Context diagrams (Level 1)
+  - Container diagrams (Level 2)
+  - Mermaid.js compatible
+
+- **📝 Professional Documentation**:
+  - Service catalog with runbooks
+  - API contracts with examples
+  - Architecture Decision Records (ADRs)
+  - Dependency matrix with cycle detection
+
+- **🔍 GraphQL Federation Support**: 
+  - Extract GraphQL schemas
+  - Map federation relationships
+  - Analyze multi-tenant database patterns
 
 ## Installation
 
@@ -34,41 +44,93 @@ bun install
 
 # Copy and configure environment
 cp .env.example .env
-# Edit .env with your API key
+# Edit .env with your settings (see Configuration)
 ```
 
 ## Configuration
 
-Create a `.env` file:
+### Option 1: OpenAI (Default)
 
 ```ini
 LLM_API_KEY=sk-...
-LLM_BASE_URL=https://api.openai.com/v1  # Optional: Defaults to OpenAI
-LLM_MODEL=gpt-4o                        # Optional: Defaults to gpt-4o
+LLM_BASE_URL=https://api.openai.com/v1
+LLM_MODEL=gpt-4o
 ```
+
+### Option 2: Ollama (Local)
+
+```ini
+LLM_API_KEY=ollama
+LLM_BASE_URL=http://localhost:11434/v1
+LLM_MODEL=kimi-k2.5:cloud  # or any model you have
+```
+
+> 💡 **Ollama is fully supported!** Tested with kimi-k2.5:cloud model.
 
 ## Usage
 
-### Analyze a project
+### CLI (Interactive)
 
 ```bash
-# Analyze current directory
-bun start
-
-# Analyze specific project
-bun start /path/to/your/microservices ./docs/output
+bun run cli
 ```
 
-### Generated Documentation
+### Programmatic
 
-The agent generates the following files in the output directory:
+```typescript
+import { MicroserviceArchitectAgent } from "./src/agents/MicroserviceArchitectAgent.ts";
 
-| File | Description |
-|------|-------------|
-| `architecture-overview.md` | System architecture, tech stack, and data flow diagram |
-| `service-catalog.md` | Detailed documentation for each service |
-| `api-documentation.md` | API endpoints organized by service |
-| `dependency-matrix.md` | Complete dependency mapping between services |
+const agent = new MicroserviceArchitectAgent();
+
+// Run full analysis
+const result = await agent.runFullAnalysis(
+  "/path/to/microservices",
+  "./output-docs"
+);
+
+console.log(`Analyzed ${Object.keys(result.services).length} services`);
+console.log(`Generated ${result.documentation.generatedFiles.length} docs`);
+```
+
+### Using ProfessionalDocumenterTool Directly
+
+```typescript
+import { ProfessionalDocumenterTool } from "./src/tools/ProfessionalDocumenterTool.ts";
+
+const result = await ProfessionalDocumenterTool.invoke({
+  projectPath: "./my-project",
+  outputPath: "./docs",
+  servicesData: JSON.stringify(services),
+  dependenciesData: JSON.stringify(dependencies),
+});
+
+// Check generated files
+console.log(result.generatedFiles);
+// ['README.md', 'c4/01-context.md', 'c4/02-container.md', ...]
+```
+
+## Generated Documentation Structure
+
+```
+docs-output/
+├── README.md                    # Navigation index
+├── c4/
+│   ├── 01-context.md           # C4 System Context diagram
+│   └── 02-container.md         # C4 Container diagram
+├── services/
+│   └── catalog.md              # Service catalog with details
+├── api-contracts/
+│   ├── api-gateway.md          # API specs per service
+│   ├── order-service.md
+│   └── user-service.md
+├── runbooks/
+│   ├── api-gateway.md          # Operational guides
+│   ├── order-service.md
+│   └── user-service.md
+├── adr/
+│   └── README.md               # Architecture Decision Records
+└── dependency-matrix.md        # Service dependency visualization
+```
 
 ## How It Works
 
@@ -138,13 +200,22 @@ Microservices architecture with 5 services.
 ```
 src/
 ├── agents/
-│   └── MicroserviceArchitectAgent.ts    # Main agent logic
+│   └── MicroserviceArchitectAgent.ts    # Main agent orchestrator
 ├── tools/
 │   ├── ServiceAnalyzerTool.ts          # Analyze individual services
 │   ├── DependencyMapperTool.ts         # Map inter-service dependencies
-│   └── ArchitectureDocumenterTool.ts   # Generate documentation
-├── index.ts                             # Entry point
-└── ...
+│   ├── ArchitectureDocumenterTool.ts   # Basic documentation
+│   ├── ProfessionalDocumenterTool.ts   # C4 Model + runbooks
+│   ├── GraphQLAnalyzerTool.ts          # GraphQL schema analysis
+│   ├── FederationMapperTool.ts         # GraphQL Federation mapping
+│   └── DatabaseSchemaAnalyzer.ts       # Multi-tenant patterns
+├── templates/                          # Markdown templates
+│   ├── c4-context.md
+│   ├── c4-container.md
+│   ├── runbook.md
+│   └── api-contract.md
+├── index.ts                            # Entry point
+└── cli.ts                              # Interactive CLI
 ```
 
 ## Requirements
