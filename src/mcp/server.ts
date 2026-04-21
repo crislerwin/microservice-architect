@@ -3,7 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/server/index.js";
+} from "@modelcontextprotocol/sdk/types.js";
 
 // Define Tool type locally since it's not exported
 interface Tool {
