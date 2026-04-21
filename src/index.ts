@@ -6,3 +6,4 @@ export { DependencyMapperTool } from "./tools/DependencyMapperTool";
 export { ArchitectureDocumenterTool } from "./tools/ArchitectureDocumenterTool";
 export { SystemInfoTool } from "./tools/SystemInfoTool";
 export { StackDetectionTool, BatchStackDetectionTool } from "./tools/StackDetectionTool";
+export { LLMCodeAnalyzerTool } from "./tools/LLMCodeAnalyzerTool";
