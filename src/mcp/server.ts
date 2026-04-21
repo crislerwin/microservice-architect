@@ -3,8 +3,14 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
-  Tool,
-} from "@modelcontextprotocol/sdk/types.js";
+} from "@modelcontextprotocol/sdk/server/index.js";
+
+// Define Tool type locally since it's not exported
+interface Tool {
+  name: string;
+  description: string;
+  inputSchema: object;
+}
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
