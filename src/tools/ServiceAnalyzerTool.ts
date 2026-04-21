@@ -2,6 +2,14 @@ import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import * as fs from "fs";
 import * as path from "path";
+import {
+  detectFramework,
+  detectDatabases,
+  detectMessageQueues,
+  detectORMs,
+  detectLanguageWithDetails,
+  isServiceDirectory,
+} from "./StackDetectionTool.js";
 
 /**
  * Analyzes a microservice to extract:
@@ -10,6 +18,8 @@ import * as path from "path";
  * - Database connections
  * - Environment variables
  * - Dockerfile configuration
+ * 
+ * Uses StackDetectionTool for centralized stack detection logic
  */
 export const ServiceAnalyzerTool = tool(
   async (input: { servicePath: string }) => {
@@ -32,17 +42,41 @@ export const ServiceAnalyzerTool = tool(
       docker: null,
     };
 
+    // Use StackDetectionTool for language detection
+    const languageInfo = detectLanguageWithDetails(resolvedPath);
+    
     // Analyze package.json
     const packageJsonPath = path.join(resolvedPath, "package.json");
     if (fs.existsSync(packageJsonPath)) {
       const pkg = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8"));
+      
+      // Use centralized framework detection
+      const framework = detectFramework(pkg);
+      const orms = detectORMs(pkg);
+      
       analysis.techStack = {
-        language: "JavaScript/TypeScript",
-        runtime: pkg.engines?.node ? `Node.js ${pkg.engines.node}` : "Node.js",
-        framework: detectFramework(pkg),
+        language: languageInfo.name || "JavaScript/TypeScript",
+        runtime: languageInfo.engines 
+          ? `Node.js ${languageInfo.engines}` 
+          : languageInfo.runtime || "Node.js",
+        framework: framework,
+        orms: orms,
         dependencies: Object.keys(pkg.dependencies || {}),
         devDependencies: Object.keys(pkg.devDependencies || {}),
       };
+      
+      // Check for message queues in dependencies
+      const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+      const queueDeps = Object.keys(deps).filter(dep => 
+        dep.includes("kafka") || dep.includes("rabbitmq") || 
+        dep.includes("bull") || dep.includes("amqp")
+      );
+      
+      if (queueDeps.length > 0) {
+        analysis.techStack.messageQueues = detectMessageQueues(
+          queueDeps.join(" ")
+        );
+      }
     }
 
     // Analyze Dockerfile
@@ -52,11 +86,18 @@ export const ServiceAnalyzerTool = tool(
       analysis.docker = parseDockerfile(dockerfile);
     }
 
-    // Analyze docker-compose.yml
+    // Analyze docker-compose.yml using centralized database detection
     const composePath = path.join(resolvedPath, "docker-compose.yml");
-    if (fs.existsSync(composePath)) {
-      const compose = fs.readFileSync(composePath, "utf-8");
-      analysis.databases = detectDatabases(compose);
+    const composeYamlPath = path.join(resolvedPath, "docker-compose.yaml");
+    
+    for (const composeFilePath of [composePath, composeYamlPath]) {
+      if (fs.existsSync(composeFilePath)) {
+        const compose = fs.readFileSync(composeFilePath, "utf-8");
+        // Use centralized detection functions
+        analysis.databases = detectDatabases(compose);
+        analysis.messageQueues = detectMessageQueues(compose);
+        break;
+      }
     }
 
     // Analyze source files for endpoints
@@ -82,19 +123,6 @@ export const ServiceAnalyzerTool = tool(
   }
 );
 
-function detectFramework(pkg: any): string {
-  const deps = { ...pkg.dependencies, ...pkg.devDependencies };
-  if (deps["express"]) return "Express.js";
-  if (deps["fastify"]) return "Fastify";
-  if (deps["@nestjs/core"]) return "NestJS";
-  if (deps["next"]) return "Next.js";
-  if (deps["@remix-run/node"]) return "Remix";
-  if (deps["koa"]) return "Koa";
-  if (deps["hono"]) return "Hono";
-  if (deps["elysia"]) return "Elysia";
-  return "Unknown";
-}
-
 function parseDockerfile(dockerfile: string): Record<string, any> {
   const lines = dockerfile.split("\n");
   const info: Record<string, any> = {
@@ -115,24 +143,6 @@ function parseDockerfile(dockerfile: string): Record<string, any> {
   }
 
   return info;
-}
-
-function detectDatabases(compose: string): string[] {
-  const databases: string[] = [];
-  const dbKeywords = [
-    "postgres", "mysql", "mongodb", "redis", "elasticsearch",
-    "cassandra", "couchdb", "neo4j", "influxdb", "timescaledb",
-    "mariadb", "sqlite"
-  ];
-
-  const lowerCompose = compose.toLowerCase();
-  for (const db of dbKeywords) {
-    if (lowerCompose.includes(db)) {
-      databases.push(db);
-    }
-  }
-
-  return [...new Set(databases)];
 }
 
 function scanForEndpoints(srcPath: string): string[] {
