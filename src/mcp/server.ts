@@ -1,43 +1,30 @@
+#!/usr/bin/env bun
+/**
+ * MCP Server for Microservice Architect
+ * 
+ * Uses MCP SDK v1.x API (Server class with request handlers)
+ */
+
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  Tool,
 } from "@modelcontextprotocol/sdk/types.js";
-
-// Define Tool type locally since it's not exported
-interface Tool {
-  name: string;
-  description: string;
-  inputSchema: object;
-}
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 
 // Import the tools from the existing codebase
-// We'll import the tool functions directly
 import { ServiceAnalyzerTool } from "../tools/ServiceAnalyzerTool.js";
 import { WorkspaceAnalyzerTool } from "../tools/WorkspaceAnalyzerTool.js";
 import { DependencyMapperTool } from "../tools/DependencyMapperTool.js";
-import { ArchitectureDocumenterTool } from "../tools/ArchitectureDocumenterTool.js";
 import { ProfessionalDocumenterTool } from "../tools/ProfessionalDocumenterTool.js";
 import { LLMCodeAnalyzerTool } from "../tools/LLMCodeAnalyzerTool.js";
 
-// Get the directory name for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-/**
- * MCP Server for Microservice Architect
- * 
- * Exposes the following tools:
- * - analyze_service: Analyze a single microservice
- * - analyze_workspace: Analyze a workspace containing multiple microservices
- * - analyze_code_llm: LLM-powered codebase analysis
- * - map_dependencies: Map dependencies between services
- * - generate_documentation: Generate comprehensive architecture documentation
- */
 
 // Define the tools for MCP
 const tools: Tool[] = [
@@ -71,7 +58,7 @@ const tools: Tool[] = [
   },
   {
     name: "analyze_code_llm",
-    description: "Uses LLM (Large Language Model) to provide intelligent analysis of a codebase's architecture, patterns, tech stack, and design decisions. Reads key files and provides architectural insights.",
+    description: "Uses LLM to provide intelligent analysis of a codebase's architecture, patterns, tech stack, and design decisions. Reads key files and provides architectural insights.",
     inputSchema: {
       type: "object",
       properties: {
@@ -89,7 +76,7 @@ const tools: Tool[] = [
   },
   {
     name: "map_dependencies",
-    description: "Maps dependencies between microservices in a project. Detects HTTP API calls between services, shared database connections, message queue connections (RabbitMQ, Kafka, etc.), and service registry usage.",
+    description: "Maps dependencies between microservices in a project. Detects HTTP API calls between services, shared database connections, message queue connections, and service registry usage.",
     inputSchema: {
       type: "object",
       properties: {
@@ -155,7 +142,6 @@ export function createMCPServer(): Server {
         case "analyze_service": {
           const { servicePath } = args as { servicePath: string };
           
-          // Validate path exists
           if (!fs.existsSync(servicePath)) {
             return {
               content: [
@@ -171,7 +157,6 @@ export function createMCPServer(): Server {
             };
           }
 
-          // Call the ServiceAnalyzerTool
           result = await ServiceAnalyzerTool.invoke({ servicePath });
           break;
         }
@@ -179,7 +164,6 @@ export function createMCPServer(): Server {
         case "analyze_workspace": {
           const { workspacePath } = args as { workspacePath: string };
           
-          // Validate path exists
           if (!fs.existsSync(workspacePath)) {
             return {
               content: [
@@ -195,15 +179,14 @@ export function createMCPServer(): Server {
             };
           }
 
-          // Call the WorkspaceAnalyzerTool
-          result = await WorkspaceAnalyzerTool.invoke({ workspacePath });
+          const workspaceResult = await WorkspaceAnalyzerTool.invoke({ workspacePath });
+          result = JSON.stringify(workspaceResult, null, 2);
           break;
         }
 
         case "analyze_code_llm": {
-          const { projectPath, maxFileLines } = args as { projectPath: string; maxFileLines?: number };
+          const { projectPath, maxFileLines = 100 } = args as { projectPath: string; maxFileLines?: number };
           
-          // Validate path exists
           if (!fs.existsSync(projectPath)) {
             return {
               content: [
@@ -219,23 +202,6 @@ export function createMCPServer(): Server {
             };
           }
 
-          // Check if LLM is configured
-          if (!process.env.LLM_API_KEY) {
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: JSON.stringify({
-                    error: "LLM_API_KEY environment variable is not set",
-                    hint: "Set LLM_API_KEY to use the LLM-powered analysis. You can also set LLM_MODEL and LLM_BASE_URL for custom configuration.",
-                  }, null, 2),
-                },
-              ],
-              isError: true,
-            };
-          }
-
-          // Call the LLMCodeAnalyzerTool
           result = await LLMCodeAnalyzerTool.invoke({ projectPath, maxFileLines });
           break;
         }
@@ -243,7 +209,6 @@ export function createMCPServer(): Server {
         case "map_dependencies": {
           const { projectRoot } = args as { projectRoot: string };
           
-          // Validate path exists
           if (!fs.existsSync(projectRoot)) {
             return {
               content: [
@@ -251,7 +216,7 @@ export function createMCPServer(): Server {
                   type: "text",
                   text: JSON.stringify({
                     error: `Path does not exist: ${projectRoot}`,
-                    hint: "Please provide an absolute path to the project root directory",
+                    hint: "Please provide an absolute path to the project root",
                   }, null, 2),
                 },
               ],
@@ -259,8 +224,8 @@ export function createMCPServer(): Server {
             };
           }
 
-          // Call the DependencyMapperTool
-          result = await DependencyMapperTool.invoke({ projectRoot });
+          const depsResult = await DependencyMapperTool.invoke({ projectPath: projectRoot });
+          result = JSON.stringify(depsResult, null, 2);
           break;
         }
 
@@ -272,35 +237,19 @@ export function createMCPServer(): Server {
             fs.mkdirSync(outputPath, { recursive: true });
           }
 
-          // First analyze the workspace to get service data
-          const workspaceResult = await WorkspaceAnalyzerTool.invoke({ workspacePath: projectPath });
-          const workspaceData = JSON.parse(workspaceResult);
+          // First analyze the workspace
+          const workspaceData = await WorkspaceAnalyzerTool.invoke({ workspacePath: projectPath });
+          const dependenciesData = await DependencyMapperTool.invoke({ projectPath });
 
-          if (workspaceData.error || workspaceData.totalServices === 0) {
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: JSON.stringify({
-                    error: "No services found in workspace",
-                    hint: "Make sure the projectPath contains microservices with package.json or Dockerfile",
-                  }, null, 2),
-                },
-              ],
-              isError: true,
-            };
-          }
-
-          // Map dependencies
-          const depsResult = await DependencyMapperTool.invoke({ projectRoot: projectPath });
-
-          // Generate professional documentation
-          result = await ProfessionalDocumenterTool.invoke({
-            outputPath,
+          // Generate documentation
+          const docsResult = await ProfessionalDocumenterTool.invoke({
             projectPath,
-            servicesData: workspaceResult,
-            dependenciesData: depsResult,
+            outputPath,
+            servicesData: JSON.stringify(workspaceData.services || {}),
+            dependenciesData: JSON.stringify(dependenciesData || {}),
           });
+
+          result = docsResult;
           break;
         }
 
@@ -311,7 +260,7 @@ export function createMCPServer(): Server {
                 type: "text",
                 text: JSON.stringify({
                   error: `Unknown tool: ${name}`,
-                  availableTools: tools.map((t) => t.name),
+                  availableTools: tools.map(t => t.name),
                 }, null, 2),
               },
             ],
@@ -319,7 +268,7 @@ export function createMCPServer(): Server {
           };
       }
 
-      // Parse and format the result
+      // Parse and pretty-print the result
       let parsedResult;
       try {
         parsedResult = JSON.parse(result);
@@ -331,24 +280,22 @@ export function createMCPServer(): Server {
         content: [
           {
             type: "text",
-            text: typeof parsedResult === "string" ? parsedResult : JSON.stringify(parsedResult, null, 2),
+            text: JSON.stringify(parsedResult, null, 2),
           },
         ],
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
+      
       return {
         content: [
           {
             type: "text",
-            text: JSON.stringify(
-              {
-                error: `Tool execution failed: ${errorMessage}`,
-                tool: name,
-              },
-              null,
-              2
-            ),
+            text: JSON.stringify({
+              error: errorMessage,
+              tool: name,
+              hint: "Make sure required environment variables are set (LLM_API_KEY, etc.)",
+            }, null, 2),
           },
         ],
         isError: true,
