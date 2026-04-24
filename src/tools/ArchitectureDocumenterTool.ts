@@ -1,18 +1,14 @@
 import { tool } from "@langchain/core/tools";
-import { z } from "zod";
 import * as fs from "fs";
 import * as path from "path";
+import { z } from "zod";
 
 /**
  * Generates comprehensive architecture documentation
  * including README, architecture diagrams, and API docs.
  */
 export const ArchitectureDocumenterTool = tool(
-  async (input: {
-    outputPath: string;
-    servicesData: string;
-    dependenciesData: string;
-  }) => {
+  async (input: { outputPath: string; servicesData: string; dependenciesData: string }) => {
     const { outputPath, servicesData, dependenciesData } = input;
     const resolvedOutputPath = path.resolve(outputPath);
 
@@ -73,19 +69,17 @@ export const ArchitectureDocumenterTool = tool(
   },
   {
     name: "document_architecture",
-    description: "Generates comprehensive architecture documentation including README, diagrams, and API docs",
+    description:
+      "Generates comprehensive architecture documentation including README, diagrams, and API docs",
     schema: z.object({
       outputPath: z.string().describe("Directory where documentation will be generated"),
       servicesData: z.string().describe("JSON string of analyzed services data"),
       dependenciesData: z.string().describe("JSON string of mapped dependencies data"),
     }),
-  }
+  },
 );
 
-function generateReadme(
-  services: Record<string, any>,
-  dependencies: Record<string, any>
-): string {
+function generateReadme(services: Record<string, any>, dependencies: Record<string, any>): string {
   const serviceCount = Object.keys(services).length;
   const connectionCount = dependencies.connections?.length || 0;
 
@@ -134,7 +128,7 @@ See individual service documentation in the \`services/\` directory for setup in
 
 function generateArchitectureDiagram(
   services: Record<string, any>,
-  dependencies: Record<string, any>
+  dependencies: Record<string, any>,
 ): string {
   const serviceNames = Object.keys(services);
   const connections = dependencies.connections || [];
@@ -182,33 +176,37 @@ graph TB
 
 ## Service Communication
 
-${connections.length > 0
-  ? connections
-      .map((c) => `- **${c.from}** → **${c.to}** (${c.type})`)
-      .join("\n")
-  : "_No inter-service connections detected._"}
+${
+  connections.length > 0
+    ? connections.map((c) => `- **${c.from}** → **${c.to}** (${c.type})`).join("\n")
+    : "_No inter-service connections detected._"
+}
 
 ## Data Layer
 
-${(dependencies.sharedDatabases || []).length > 0
-  ? `Shared databases:\n${dependencies.sharedDatabases
-      .map((db: string) => `- ${db}`)
-      .join("\n")}`
-  : "_No shared databases detected._"}
+${
+  (dependencies.sharedDatabases || []).length > 0
+    ? `Shared databases:\n${dependencies.sharedDatabases.map((db: string) => `- ${db}`).join("\n")}`
+    : "_No shared databases detected._"
+}
 
 ## Messaging
 
-${(dependencies.messageQueues || []).length > 0
-  ? `Message queues in use:\n${dependencies.messageQueues
-      .map((mq: string) => `- ${mq}`)
-      .join("\n")}`
-  : "_No message queues detected._"}
+${
+  (dependencies.messageQueues || []).length > 0
+    ? `Message queues in use:\n${dependencies.messageQueues
+        .map((mq: string) => `- ${mq}`)
+        .join("\n")}`
+    : "_No message queues detected._"
+}
 
 ## Service Registry
 
-${dependencies.serviceRegistry
-  ? `Using: **${dependencies.serviceRegistry}**`
-  : "_No service registry detected._"}
+${
+  dependencies.serviceRegistry
+    ? `Using: **${dependencies.serviceRegistry}**`
+    : "_No service registry detected._"
+}
 `;
 
   return mermaid;
@@ -283,44 +281,56 @@ ${data.description || `The ${name} microservice.`}
 ## Dependencies
 
 ### Production
-${(stack.dependencies || [])
-  .slice(0, 10)
-  .map((d: string) => `- ${d}`)
-  .join("\n") || "_No dependencies detected._"}
+${
+  (stack.dependencies || [])
+    .slice(0, 10)
+    .map((d: string) => `- ${d}`)
+    .join("\n") || "_No dependencies detected._"
+}
 
 ### Development
-${(stack.devDependencies || [])
-  .slice(0, 10)
-  .map((d: string) => `- ${d}`)
-  .join("\n") || "_No dev dependencies detected._"}
+${
+  (stack.devDependencies || [])
+    .slice(0, 10)
+    .map((d: string) => `- ${d}`)
+    .join("\n") || "_No dev dependencies detected._"
+}
 
 ## API Endpoints
 
-${endpoints.length > 0
-  ? endpoints.map((e: string) => `- \`${e}\``).join("\n")
-  : "_No endpoints detected._"}
+${
+  endpoints.length > 0
+    ? endpoints.map((e: string) => `- \`${e}\``).join("\n")
+    : "_No endpoints detected._"
+}
 
 ## Data Layer
 
-${databases.length > 0
-  ? databases.map((d: string) => `- ${d}`).join("\n")
-  : "_No databases detected._"}
+${
+  databases.length > 0
+    ? databases.map((d: string) => `- ${d}`).join("\n")
+    : "_No databases detected._"
+}
 
 ## Configuration
 
 ### Environment Variables
 
-${envVars.length > 0
-  ? envVars.map((v: string) => `- \`${v}\``).join("\n")
-  : "_No environment variables detected._"}
+${
+  envVars.length > 0
+    ? envVars.map((v: string) => `- \`${v}\``).join("\n")
+    : "_No environment variables detected._"
+}
 
 ## Docker Configuration
 
-${data.docker
-  ? `- **Base Image**: ${data.docker.baseImage || "Unknown"}
+${
+  data.docker
+    ? `- **Base Image**: ${data.docker.baseImage || "Unknown"}
 - **Exposed Ports**: ${data.docker.ports.join(", ") || "None"}
 - **Commands**: ${data.docker.commands.join("; ") || "None"}`
-  : "_No Docker configuration detected._"}
+    : "_No Docker configuration detected._"
+}
 
 ---
 
@@ -366,14 +376,14 @@ flowchart LR
 
 ## Connection Types
 
-${Object.entries(connectionsByType)
-  .map(([type, conns]) => {
-    return `### ${type.toUpperCase()}
-${conns
-  .map((c) => `- **${c.from}** → **${c.to}**`)
-  .join("\n")}`;
-  })
-  .join("\n\n") || "_No connections detected._"}
+${
+  Object.entries(connectionsByType)
+    .map(([type, conns]) => {
+      return `### ${type.toUpperCase()}
+${conns.map((c) => `- **${c.from}** → **${c.to}**`).join("\n")}`;
+    })
+    .join("\n\n") || "_No connections detected._"
+}
 
 ## Service Dependencies
 
@@ -383,10 +393,11 @@ ${conns
 
   for (const [name, data] of Object.entries(dependencies.services || {})) {
     const dependsOn = (data as any).dependsOn?.join(", ") || "None";
-    const providesTo = connections
-      .filter((c) => c.to === name)
-      .map((c) => c.from)
-      .join(", ") || "None";
+    const providesTo =
+      connections
+        .filter((c) => c.to === name)
+        .map((c) => c.from)
+        .join(", ") || "None";
     graph += `| ${name} | ${dependsOn} | ${providesTo} |\n`;
   }
 

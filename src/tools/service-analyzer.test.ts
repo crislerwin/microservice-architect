@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "fs";
-import * as path from "path";
 import { tmpdir } from "os";
+import * as path from "path";
 
 describe("ServiceAnalyzer Tests", () => {
   let testDir: string;
@@ -40,9 +40,7 @@ describe("ServiceAnalyzer Tests", () => {
         },
       };
 
-      const hasNestJS = Object.keys(packageJson.dependencies).some((dep) =
-        dep.includes("nestjs")
-      );
+      const hasNestJS = Object.keys(packageJson.dependencies).some((dep = dep.includes("nestjs")));
       expect(hasNestJS).toBe(true);
     });
 
@@ -178,9 +176,7 @@ services:
         },
       };
 
-      const hasKafka = Object.keys(packageJson.dependencies).some((dep) =
-        dep.includes("kafka")
-      );
+      const hasKafka = Object.keys(packageJson.dependencies).some((dep = dep.includes("kafka")));
       expect(hasKafka).toBe(true);
     });
   });
@@ -242,7 +238,8 @@ app.delete('/users/:id', handler);
       const putMatches = code.match(/app\.put\(['"`]([^'"`]+)/g) || [];
       const deleteMatches = code.match(/app\.delete\(['"`]([^'"`]+)/g) || [];
 
-      const totalRoutes = getMatches.length + postMatches.length + putMatches.length + deleteMatches.length;
+      const totalRoutes =
+        getMatches.length + postMatches.length + putMatches.length + deleteMatches.length;
       expect(totalRoutes).toBe(5);
     });
   });

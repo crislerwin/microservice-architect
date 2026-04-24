@@ -1,5 +1,5 @@
-import { DynamicTool } from "@langchain/core/tools";
 import * as os from "node:os";
+import { DynamicTool } from "@langchain/core/tools";
 
 export class SystemInfoTool extends DynamicTool {
   constructor() {
@@ -20,7 +20,7 @@ export class SystemInfoTool extends DynamicTool {
             freeMem: os.freemem(),
           },
           null,
-          2
+          2,
         );
       },
     });

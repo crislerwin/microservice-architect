@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 /**
  * MCP Server Entry Point for Microservice Architect
- * 
+ *
  * This is the entry point for the MCP (Model Context Protocol) server.
  * It uses stdio transport for communication with MCP clients like
  * Claude Desktop, Cursor, and other MCP-compatible tools.
- * 
+ *
  * Usage:
  *   bun run mcp-server
  *   or
  *   npx tsx src/mcp/index.ts
- * 
+ *
  * Environment Variables:
  *   - LLM_API_KEY: API key for LLM provider (OpenAI, etc.) - Required for analyze_code_llm
  *   - LLM_MODEL: Model to use (default: gpt-4o)

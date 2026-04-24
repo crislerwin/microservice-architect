@@ -1,13 +1,13 @@
 import { tool } from "@langchain/core/tools";
-import { z } from "zod";
 import * as fs from "fs";
 import * as path from "path";
+import { z } from "zod";
 import {
-  detectFramework,
   detectDatabases,
+  detectFramework,
+  detectLanguageWithDetails,
   detectMessageQueues,
   detectORMs,
-  detectLanguageWithDetails,
   isServiceDirectory,
 } from "./StackDetectionTool.js";
 
@@ -18,7 +18,7 @@ import {
  * - Database connections
  * - Environment variables
  * - Dockerfile configuration
- * 
+ *
  * Uses StackDetectionTool for centralized stack detection logic
  */
 export const ServiceAnalyzerTool = tool(
@@ -44,38 +44,39 @@ export const ServiceAnalyzerTool = tool(
 
     // Use StackDetectionTool for language detection
     const languageInfo = detectLanguageWithDetails(resolvedPath);
-    
+
     // Analyze package.json
     const packageJsonPath = path.join(resolvedPath, "package.json");
     if (fs.existsSync(packageJsonPath)) {
       const pkg = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8"));
-      
+
       // Use centralized framework detection
       const framework = detectFramework(pkg);
       const orms = detectORMs(pkg);
-      
+
       analysis.techStack = {
         language: languageInfo.name || "JavaScript/TypeScript",
-        runtime: languageInfo.engines 
-          ? `Node.js ${languageInfo.engines}` 
+        runtime: languageInfo.engines
+          ? `Node.js ${languageInfo.engines}`
           : languageInfo.runtime || "Node.js",
         framework: framework,
         orms: orms,
         dependencies: Object.keys(pkg.dependencies || {}),
         devDependencies: Object.keys(pkg.devDependencies || {}),
       };
-      
+
       // Check for message queues in dependencies
       const deps = { ...pkg.dependencies, ...pkg.devDependencies };
-      const queueDeps = Object.keys(deps).filter(dep => 
-        dep.includes("kafka") || dep.includes("rabbitmq") || 
-        dep.includes("bull") || dep.includes("amqp")
+      const queueDeps = Object.keys(deps).filter(
+        (dep) =>
+          dep.includes("kafka") ||
+          dep.includes("rabbitmq") ||
+          dep.includes("bull") ||
+          dep.includes("amqp"),
       );
-      
+
       if (queueDeps.length > 0) {
-        analysis.techStack.messageQueues = detectMessageQueues(
-          queueDeps.join(" ")
-        );
+        analysis.techStack.messageQueues = detectMessageQueues(queueDeps.join(" "));
       }
     }
 
@@ -89,7 +90,7 @@ export const ServiceAnalyzerTool = tool(
     // Analyze docker-compose.yml using centralized database detection
     const composePath = path.join(resolvedPath, "docker-compose.yml");
     const composeYamlPath = path.join(resolvedPath, "docker-compose.yaml");
-    
+
     for (const composeFilePath of [composePath, composeYamlPath]) {
       if (fs.existsSync(composeFilePath)) {
         const compose = fs.readFileSync(composeFilePath, "utf-8");
@@ -100,10 +101,41 @@ export const ServiceAnalyzerTool = tool(
       }
     }
 
-    // Analyze source files for endpoints
-    const srcPath = path.join(resolvedPath, "src");
-    if (fs.existsSync(srcPath)) {
-      analysis.endpoints = scanForEndpoints(srcPath);
+    // Analyze source files for endpoints (support multiple languages)
+    const srcPaths = ["src", "internal", "cmd", "pkg", "lib", "app"];
+    for (const srcDir of srcPaths) {
+      const srcPath = path.join(resolvedPath, srcDir);
+      if (fs.existsSync(srcPath)) {
+        const endpoints = scanForEndpoints(srcPath);
+        if (endpoints.length > 0) {
+          analysis.endpoints.push(...endpoints);
+        }
+      }
+    }
+
+    // Also try root for simple Go projects
+    if (analysis.endpoints.length === 0 && languageInfo.name === "Go") {
+      const goFiles = fs
+        .readdirSync(resolvedPath)
+        .filter((f) => f.endsWith(".go") && !f.includes("_test"));
+      for (const file of goFiles.slice(0, 3)) {
+        const filePath = path.join(resolvedPath, file);
+        const content = fs.readFileSync(filePath, "utf-8");
+        // Quick scan for Gin/Echo/Fiber routes
+        const routePatterns = [
+          /\.GET\(["']([^"']+)/g,
+          /\.POST\(["']([^"']+)/g,
+          /\.PUT\(["']([^"']+)/g,
+          /\.DELETE\(["']([^"']+)/g,
+          /\.PATCH\(["']([^"']+)/g,
+        ];
+        for (const pattern of routePatterns) {
+          let match;
+          while ((match = pattern.exec(content)) !== null) {
+            analysis.endpoints.push(match[1]);
+          }
+        }
+      }
     }
 
     // Analyze .env.example for environment variables
@@ -116,11 +148,12 @@ export const ServiceAnalyzerTool = tool(
   },
   {
     name: "analyze_service",
-    description: "Analyzes a microservice to extract tech stack, API endpoints, databases, and dependencies",
+    description:
+      "Analyzes a microservice to extract tech stack, API endpoints, databases, and dependencies",
     schema: z.object({
       servicePath: z.string().describe("Path to the service directory"),
     }),
-  }
+  },
 );
 
 function parseDockerfile(dockerfile: string): Record<string, any> {

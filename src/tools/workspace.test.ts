@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "fs";
-import * as path from "path";
+import { mkdirSync, rmdirSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
-import { mkdirSync, writeFileSync, rmdirSync } from "fs";
+import * as path from "path";
 
 // Helper function to create test directory structure
 function createTestWorkspace(basePath: string) {
@@ -25,7 +25,7 @@ function createTestWorkspace(basePath: string) {
         mongoose: "^7.0.0",
         redis: "^4.0.0",
       },
-    })
+    }),
   );
 
   // Order service - Node.js with Fastify
@@ -36,9 +36,9 @@ function createTestWorkspace(basePath: string) {
       dependencies: {
         fastify: "^4.0.0",
         prisma: "^4.0.0",
-        "kafkajs": "^2.0.0",
+        kafkajs: "^2.0.0",
       },
-    })
+    }),
   );
 
   // API Gateway - Node.js
@@ -50,7 +50,7 @@ function createTestWorkspace(basePath: string) {
         express: "^4.18.0",
         axios: "^1.0.0",
       },
-    })
+    }),
   );
 
   return { userService, orderService, apiGateway };
@@ -76,10 +76,7 @@ describe("Workspace Detection", () => {
   it("should detect Node.js service by package.json", () => {
     const serviceDir = path.join(testDir, "test-service");
     mkdirSync(serviceDir, { recursive: true });
-    writeFileSync(
-      path.join(serviceDir, "package.json"),
-      JSON.stringify({ name: "test-service" })
-    );
+    writeFileSync(path.join(serviceDir, "package.json"), JSON.stringify({ name: "test-service" }));
 
     const hasPackageJson = fs.existsSync(path.join(serviceDir, "package.json"));
     expect(hasPackageJson).toBe(true);
@@ -127,10 +124,7 @@ describe("Workspace Detection", () => {
         mongoose: "^7.0.0",
       },
     };
-    writeFileSync(
-      path.join(serviceDir, "package.json"),
-      JSON.stringify(packageJson)
-    );
+    writeFileSync(path.join(serviceDir, "package.json"), JSON.stringify(packageJson));
 
     const content = fs.readFileSync(path.join(serviceDir, "package.json"), "utf-8");
     const parsed = JSON.parse(content);
@@ -151,10 +145,7 @@ services:
 `;
     writeFileSync(path.join(serviceDir, "docker-compose.yml"), dockerCompose);
 
-    const content = fs.readFileSync(
-      path.join(serviceDir, "docker-compose.yml"),
-      "utf-8"
-    );
+    const content = fs.readFileSync(path.join(serviceDir, "docker-compose.yml"), "utf-8");
 
     expect(content).toContain("postgres");
     expect(content).toContain("redis");
@@ -188,7 +179,7 @@ app.get('/users/:id', (req, res) => {});
 `;
 
     const routeMatches = code.match(
-      /(?:app\.|router\.|server\.)?(get|post|put|delete|patch)\(['"`]([^'"`]+)/gi
+      /(?:app\.|router\.|server\.)?(get|post|put|delete|patch)\(['"`]([^'"`]+)/gi,
     );
 
     expect(routeMatches).toBeDefined();
@@ -233,7 +224,7 @@ await producer.send({
 const DATABASE_URL = 'postgresql://user:pass@localhost:5432/mydb';
 `;
 
-    const dbMatch = code.match(/DATABASE_URL.*:\/\/([^\/]+)/);
+    const dbMatch = code.match(/DATABASE_URL.*:\/\/([^/]+)/);
 
     expect(dbMatch).toBeDefined();
     expect(dbMatch?.[1]).toContain("localhost");
