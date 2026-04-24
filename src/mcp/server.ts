@@ -11,11 +11,8 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-  type Tool,
-} from "@modelcontextprotocol/sdk/types.js";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { DependencyMapperTool } from "../tools/DependencyMapperTool.js";
 import { LLMCodeAnalyzerTool } from "../tools/LLMCodeAnalyzerTool.js";
 import { ProfessionalDocumenterTool } from "../tools/ProfessionalDocumenterTool.js";
@@ -306,13 +303,17 @@ export function createMCPServer(): Server {
 
           // First analyze the workspace
           const workspaceData = await WorkspaceAnalyzerTool.invoke({ workspacePath: projectPath });
-          const dependenciesData = await DependencyMapperTool.invoke({ projectPath });
+          const dependenciesData = await DependencyMapperTool.invoke({ projectRoot: projectPath });
 
           // Generate documentation
+          const services =
+            workspaceData && typeof workspaceData === "object" && "services" in workspaceData
+              ? workspaceData.services
+              : {};
           const docsResult = await ProfessionalDocumenterTool.invoke({
             projectPath,
             outputPath,
-            servicesData: JSON.stringify(workspaceData.services || {}),
+            servicesData: JSON.stringify(services),
             dependenciesData: JSON.stringify(dependenciesData || {}),
           });
 
