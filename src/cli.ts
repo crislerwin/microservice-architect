@@ -178,7 +178,7 @@ async function main() {
         p.note(filesList, "Generated Documentation");
       }
 
-      p.success(`Documentation saved to: ${absoluteOutputPath}`);
+      p.outro(`Documentation saved to: ${absoluteOutputPath}`);
     } else if (analysisType === "dependencies") {
       s.start("🔗 Mapping service dependencies...");
       await sleep(500);

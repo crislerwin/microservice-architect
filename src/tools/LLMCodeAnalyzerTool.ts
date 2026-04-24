@@ -4,6 +4,21 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import { ChatOpenAI } from "@langchain/openai";
 
+// Check if we should use Ollama
+const useOllama = process.env.LLM_BASE_URL?.includes('127.0.0.1:11434') || 
+                  process.env.LLM_BASE_URL?.includes('localhost:11434') ||
+                  process.env.USE_OLLAMA === 'true';
+
+// Ollama-compatible model (uses OpenAI-compatible API)
+const MODEL_CONFIG = {
+  model: useOllama ? (process.env.LLM_MODEL || "llama3.2:3b") : (process.env.LLM_MODEL || "gpt-4o-mini"),
+  temperature: 0.1,
+  apiKey: process.env.LLM_API_KEY || (useOllama ? "ollama" : undefined),
+  configuration: {
+    baseURL: process.env.LLM_BASE_URL || (useOllama ? "http://127.0.0.1:11434/v1" : undefined),
+  },
+};
+
 /**
  * CodebaseAnalysisResult - Structured output from the LLM analysis
  */
@@ -69,15 +84,8 @@ export const LLMCodeAnalyzerTool = tool(
     // Gather project context
     const context = await gatherProjectContext(resolvedPath, maxFileLines);
 
-    // Initialize LLM
-    const model = new ChatOpenAI({
-      model: process.env.LLM_MODEL || "gpt-4o",
-      temperature: 0.1,
-      apiKey: process.env.LLM_API_KEY,
-      configuration: {
-        baseURL: process.env.LLM_BASE_URL,
-      },
-    });
+    // Initialize LLM with Ollama support
+    const model = new ChatOpenAI(MODEL_CONFIG);
 
     // Build prompt with project context
     const prompt = buildAnalysisPrompt(context);

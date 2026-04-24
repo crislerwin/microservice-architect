@@ -100,10 +100,40 @@ export const ServiceAnalyzerTool = tool(
       }
     }
 
-    // Analyze source files for endpoints
-    const srcPath = path.join(resolvedPath, "src");
-    if (fs.existsSync(srcPath)) {
-      analysis.endpoints = scanForEndpoints(srcPath);
+    // Analyze source files for endpoints (support multiple languages)
+    const srcPaths = ["src", "internal", "cmd", "pkg", "lib", "app"];
+    for (const srcDir of srcPaths) {
+      const srcPath = path.join(resolvedPath, srcDir);
+      if (fs.existsSync(srcPath)) {
+        const endpoints = scanForEndpoints(srcPath);
+        if (endpoints.length > 0) {
+          analysis.endpoints.push(...endpoints);
+        }
+      }
+    }
+
+    // Also try root for simple Go projects
+    if (analysis.endpoints.length === 0 && languageInfo.name === "Go") {
+      const goFiles = fs.readdirSync(resolvedPath)
+        .filter(f => f.endsWith('.go') && !f.includes('_test'));
+      for (const file of goFiles.slice(0, 3)) {
+        const filePath = path.join(resolvedPath, file);
+        const content = fs.readFileSync(filePath, 'utf-8');
+        // Quick scan for Gin/Echo/Fiber routes
+        const routePatterns = [
+          /\.GET\(["']([^"']+)/g,
+          /\.POST\(["']([^"']+)/g,
+          /\.PUT\(["']([^"']+)/g,
+          /\.DELETE\(["']([^"']+)/g,
+          /\.PATCH\(["']([^"']+)/g,
+        ];
+        for (const pattern of routePatterns) {
+          let match;
+          while ((match = pattern.exec(content)) !== null) {
+            analysis.endpoints.push(match[1]);
+          }
+        }
+      }
     }
 
     // Analyze .env.example for environment variables

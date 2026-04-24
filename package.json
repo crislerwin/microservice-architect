@@ -1,21 +1,32 @@
 {
   "name": "microservice-architect",
+  "version": "1.0.0",
+  "description": "Microservice Architect - Analyze and document microservice architectures",
+  "author": "Crisler Wintler",
+  "license": "MIT",
   "module": "src/index.ts",
   "bin": {
     "microservice-architect": "./dist/cli.js"
   },
   "scripts": {
-    "start": "tsx src/index.ts",
-    "cli": "tsx src/cli.ts",
-    "build": "tsc",
-    "dev": "tsx src/cli.ts",
-    "mcp-server": "tsx src/mcp/index.ts"
+    "start": "bun run src/index.ts",
+    "cli": "bun run src/cli.ts",
+    "build": "bun build ./src/cli.ts ./src/mcp/index.ts --outdir ./dist --target node --format esm",
+    "build:types": "tsc --noEmit",
+    "dev": "bun --watch run src/cli.ts",
+    "mcp-server": "bun run src/mcp/index.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check . --write",
+    "format": "biome format . --write",
+    "check": "bun run typecheck && bun run lint",
+    "ci": "bun run check && bun run build"
   },
   "type": "module",
   "private": true,
   "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
     "@types/node": "^20",
-    "tsx": "^4.7.0",
     "typescript": "^5"
   },
   "dependencies": {
@@ -25,5 +36,8 @@
     "@modelcontextprotocol/sdk": "^1.10.2",
     "langchain": "^1.2.3",
     "zod": "^3.22.4"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
   }
 }

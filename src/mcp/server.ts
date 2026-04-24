@@ -10,7 +10,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
-  Tool,
+  type Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 import * as fs from "fs";
 import * as path from "path";
@@ -207,15 +207,32 @@ export function createMCPServer(): Server {
         }
 
         case "map_dependencies": {
-          const { projectRoot } = args as { projectRoot: string };
+          // Support both projectRoot and projectPath for compatibility
+          const { projectRoot, projectPath } = args as { projectRoot?: string; projectPath?: string };
+          const resolvedRoot = projectRoot || projectPath;
           
-          if (!fs.existsSync(projectRoot)) {
+          if (!resolvedRoot) {
             return {
               content: [
                 {
                   type: "text",
                   text: JSON.stringify({
-                    error: `Path does not exist: ${projectRoot}`,
+                    error: `Missing required parameter: projectRoot or projectPath`,
+                    hint: "Please provide either projectRoot or projectPath parameter",
+                  }, null, 2),
+                },
+              ],
+              isError: true,
+            };
+          }
+          
+          if (!fs.existsSync(resolvedRoot)) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify({
+                    error: `Path does not exist: ${resolvedRoot}`,
                     hint: "Please provide an absolute path to the project root",
                   }, null, 2),
                 },
@@ -224,13 +241,28 @@ export function createMCPServer(): Server {
             };
           }
 
-          const depsResult = await DependencyMapperTool.invoke({ projectPath: projectRoot });
+          const depsResult = await DependencyMapperTool.invoke({ projectRoot: resolvedRoot });
           result = JSON.stringify(depsResult, null, 2);
           break;
         }
 
         case "generate_documentation": {
           const { outputPath, projectPath } = args as { outputPath: string; projectPath: string };
+          
+          if (!outputPath || !projectPath) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify({
+                    error: `Missing required parameters: outputPath and projectPath are required`,
+                    hint: "Please provide both outputPath and projectPath parameters",
+                  }, null, 2),
+                },
+              ],
+              isError: true,
+            };
+          }
           
           // Create output directory if it doesn't exist
           if (!fs.existsSync(outputPath)) {

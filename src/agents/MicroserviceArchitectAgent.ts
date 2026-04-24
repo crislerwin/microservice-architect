@@ -1,22 +1,23 @@
-import { ProfessionalDocumenterTool } from "@/tools/ProfessionalDocumenterTool.ts";
+import * as path from "path";
+import { ProfessionalDocumenterTool } from "../tools/ProfessionalDocumenterTool.js";
 import { ChatOpenAI } from "@langchain/openai";
 import {
   type BaseMessage,
   HumanMessage,
-  ToolMessage,
 } from "@langchain/core/messages";
-import { ServiceAnalyzerTool } from "@/tools/ServiceAnalyzerTool.ts";
-import { DependencyMapperTool } from "@/tools/DependencyMapperTool.ts";
-import { ArchitectureDocumenterTool } from "@/tools/ArchitectureDocumenterTool.ts";
+import { ServiceAnalyzerTool } from "../tools/ServiceAnalyzerTool.js";
+import { DependencyMapperTool } from "../tools/DependencyMapperTool.js";
+import { ArchitectureDocumenterTool } from "../tools/ArchitectureDocumenterTool.js";
 import {
   WorkspaceAnalyzerTool,
   BatchServiceAnalyzerTool,
-} from "@/tools/WorkspaceAnalyzerTool.ts";
+} from "../tools/WorkspaceAnalyzerTool.js";
 import {
   GraphQLAnalyzerTool,
   FederationMapperTool,
   DatabaseSchemaAnalyzer,
-} from "@/tools/GraphQLAnalyzerTool.ts";
+} from "../tools/GraphQLAnalyzerTool.js";
+import * as fs from "fs";
 
 /**
  * MicroserviceArchitectAgent - An AI agent that analyzes microservice architectures
@@ -52,7 +53,7 @@ export class MicroserviceArchitectAgent {
     this.modelWithTools = this.model.bindTools(this.tools);
   }
 
-  async analyzeService(servicePath: string) {
+  async analyzeService(servicePath: string): Promise<Record<string, unknown> | null> {
     console.log(`🔍 Analyzing service at: ${servicePath}`);
 
     const messages: BaseMessage[] = [
@@ -65,16 +66,20 @@ export class MicroserviceArchitectAgent {
 
     if (result.tool_calls && result.tool_calls.length > 0) {
       const toolCall = result.tool_calls[0];
-      if (toolCall.name === "analyze_service") {
-        const output = await ServiceAnalyzerTool.invoke(toolCall.args);
-        return JSON.parse(output);
+      if (toolCall && toolCall.name === "analyze_service") {
+        const output = await ServiceAnalyzerTool.invoke({ servicePath: toolCall.args.servicePath as string });
+        try {
+          return JSON.parse(output) as Record<string, unknown>;
+        } catch {
+          return { result: output };
+        }
       }
     }
 
     return null;
   }
 
-  async mapDependencies(projectRoot: string) {
+  async mapDependencies(projectRoot: string): Promise<Record<string, unknown> | null> {
     console.log(`🔗 Mapping dependencies for project at: ${projectRoot}`);
 
     const messages: BaseMessage[] = [
@@ -87,9 +92,13 @@ export class MicroserviceArchitectAgent {
 
     if (result.tool_calls && result.tool_calls.length > 0) {
       const toolCall = result.tool_calls[0];
-      if (toolCall.name === "map_dependencies") {
-        const output = await DependencyMapperTool.invoke(toolCall.args);
-        return JSON.parse(output);
+      if (toolCall && toolCall.name === "map_dependencies") {
+        const output = await DependencyMapperTool.invoke({ projectRoot: toolCall.args.projectRoot as string });
+        try {
+          return JSON.parse(output) as Record<string, unknown>;
+        } catch {
+          return { result: output };
+        }
       }
     }
 
@@ -101,7 +110,7 @@ export class MicroserviceArchitectAgent {
     servicesData: object,
     dependenciesData: object,
     projectRoot: string
-  ) {
+  ): Promise<Record<string, unknown> | null> {
     console.log(`📝 Generating professional architecture documentation...`);
 
     const args = {
@@ -112,14 +121,18 @@ export class MicroserviceArchitectAgent {
     };
 
     const output = await ProfessionalDocumenterTool.invoke(args);
-    return JSON.parse(output);
+    try {
+      return JSON.parse(output) as Record<string, unknown>;
+    } catch {
+      return { result: output };
+    }
   }
 
   async generateDocumentation(
     outputPath: string,
     servicesData: object,
     dependenciesData: object
-  ) {
+  ): Promise<Record<string, unknown> | null> {
     console.log(`📝 Generating documentation at: ${outputPath}`);
 
     const messages: BaseMessage[] = [
@@ -132,21 +145,26 @@ export class MicroserviceArchitectAgent {
 
     if (result.tool_calls && result.tool_calls.length > 0) {
       const toolCall = result.tool_calls[0];
-      if (toolCall.name === "document_architecture") {
+      if (toolCall && toolCall.name === "document_architecture") {
         const args = {
-          ...toolCall.args,
+          outputPath: toolCall.args.outputPath as string,
+          projectPath: toolCall.args.projectPath as string,
           servicesData: JSON.stringify(servicesData),
           dependenciesData: JSON.stringify(dependenciesData),
         };
         const output = await ArchitectureDocumenterTool.invoke(args);
-        return JSON.parse(output);
+        try {
+          return JSON.parse(output) as Record<string, unknown>;
+        } catch {
+          return { result: output };
+        }
       }
     }
 
     return null;
   }
 
-  async analyzeWorkspace(workspacePath: string) {
+  async analyzeWorkspace(workspacePath: string): Promise<Record<string, unknown> | null> {
     console.log(`📁 Analyzing workspace at: ${workspacePath}`);
 
     const messages: BaseMessage[] = [
@@ -159,16 +177,20 @@ export class MicroserviceArchitectAgent {
 
     if (result.tool_calls && result.tool_calls.length > 0) {
       const toolCall = result.tool_calls[0];
-      if (toolCall.name === "analyze_workspace") {
-        const output = await WorkspaceAnalyzerTool.invoke(toolCall.args);
-        return JSON.parse(output);
+      if (toolCall && toolCall.name === "analyze_workspace") {
+        const output = await WorkspaceAnalyzerTool.invoke({ workspacePath: toolCall.args.workspacePath as string });
+        try {
+          return JSON.parse(output) as Record<string, unknown>;
+        } catch {
+          return { result: output };
+        }
       }
     }
 
     return null;
   }
 
-  async analyzeServicesBatch(servicePaths: string[]) {
+  async analyzeServicesBatch(servicePaths: string[]): Promise<Record<string, unknown> | null> {
     console.log(`📦 Analyzing batch of ${servicePaths.length} services`);
 
     const messages: BaseMessage[] = [
@@ -181,22 +203,26 @@ export class MicroserviceArchitectAgent {
 
     if (result.tool_calls && result.tool_calls.length > 0) {
       const toolCall = result.tool_calls[0];
-      if (toolCall.name === "analyze_services_batch") {
-        const output = await BatchServiceAnalyzerTool.invoke(toolCall.args);
-        return JSON.parse(output);
+      if (toolCall && toolCall.name === "analyze_services_batch") {
+        const output = await BatchServiceAnalyzerTool.invoke({ servicePaths: toolCall.args.servicePaths as string[] });
+        try {
+          return JSON.parse(output) as Record<string, unknown>;
+        } catch {
+          return { result: output };
+        }
       }
     }
 
     return null;
   }
 
-  async runFullAnalysis(projectRoot: string, outputPath: string) {
+  async runFullAnalysis(projectRoot: string, outputPath: string): Promise<Record<string, unknown>> {
     console.log("🚀 Starting full microservice architecture analysis...\n");
 
     // Step 1: Analyze workspace to discover services
     const workspaceAnalysis = await this.analyzeWorkspace(projectRoot);
     
-    if (!workspaceAnalysis || workspaceAnalysis.totalServices === 0) {
+    if (!workspaceAnalysis || (workspaceAnalysis.totalServices as number) === 0) {
       console.log("⚠️ No services found in workspace");
       return { services: {}, dependencies: {}, documentation: null };
     }
@@ -204,8 +230,9 @@ export class MicroserviceArchitectAgent {
     console.log(`📊 Found ${workspaceAnalysis.totalServices} services in workspace`);
 
     // Step 2: Analyze each service in detail
-    const services: Record<string, any> = {};
-    const servicePaths = workspaceAnalysis.services.map((s: any) => s.path);
+    const services: Record<string, unknown> = {};
+    const servicesList = workspaceAnalysis.services as Array<{ path: string }>;
+    const servicePaths = servicesList.map((s) => s.path);
     
     console.log(`🔍 Analyzing ${servicePaths.length} services individually...`);
     
@@ -254,19 +281,16 @@ export class MicroserviceArchitectAgent {
   }
 
   private getServiceDirectories(projectRoot: string): string[] {
-    const fs = require("fs");
-    const path = require("path");
-
     const entries = fs.readdirSync(projectRoot, { withFileTypes: true });
     return entries
       .filter(
-        (e: any) =>
+        (e) =>
           e.isDirectory() &&
           !e.name.startsWith(".") &&
           e.name !== "node_modules"
       )
-      .map((e: any) => path.join(projectRoot, e.name))
-      .filter((dir: string) => {
+      .map((e) => path.join(projectRoot, e.name))
+      .filter((dir) => {
         // Check if it looks like a service (has package.json, Dockerfile, or src folder)
         return (
           fs.existsSync(path.join(dir, "package.json")) ||
@@ -277,5 +301,3 @@ export class MicroserviceArchitectAgent {
       });
   }
 }
-
-import * as path from "path";
