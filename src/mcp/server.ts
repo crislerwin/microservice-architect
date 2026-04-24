@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
  * MCP Server for Microservice Architect
- * 
+ *
  * Uses MCP SDK v1.x API (Server class with request handlers)
  */
 
@@ -15,13 +15,12 @@ import {
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
-
+import { DependencyMapperTool } from "../tools/DependencyMapperTool.js";
+import { LLMCodeAnalyzerTool } from "../tools/LLMCodeAnalyzerTool.js";
+import { ProfessionalDocumenterTool } from "../tools/ProfessionalDocumenterTool.js";
 // Import the tools from the existing codebase
 import { ServiceAnalyzerTool } from "../tools/ServiceAnalyzerTool.js";
 import { WorkspaceAnalyzerTool } from "../tools/WorkspaceAnalyzerTool.js";
-import { DependencyMapperTool } from "../tools/DependencyMapperTool.js";
-import { ProfessionalDocumenterTool } from "../tools/ProfessionalDocumenterTool.js";
-import { LLMCodeAnalyzerTool } from "../tools/LLMCodeAnalyzerTool.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,7 +29,8 @@ const __dirname = path.dirname(__filename);
 const tools: Tool[] = [
   {
     name: "analyze_service",
-    description: "Analyzes a microservice to extract tech stack, API endpoints, databases, Docker configuration, and dependencies. Provides detailed insights into a single service.",
+    description:
+      "Analyzes a microservice to extract tech stack, API endpoints, databases, Docker configuration, and dependencies. Provides detailed insights into a single service.",
     inputSchema: {
       type: "object",
       properties: {
@@ -44,7 +44,8 @@ const tools: Tool[] = [
   },
   {
     name: "analyze_workspace",
-    description: "Analyzes a workspace directory containing multiple microservices. Detects all service directories, identifies tech stacks, and provides a workspace-level overview with summary statistics.",
+    description:
+      "Analyzes a workspace directory containing multiple microservices. Detects all service directories, identifies tech stacks, and provides a workspace-level overview with summary statistics.",
     inputSchema: {
       type: "object",
       properties: {
@@ -58,7 +59,8 @@ const tools: Tool[] = [
   },
   {
     name: "analyze_code_llm",
-    description: "Uses LLM to provide intelligent analysis of a codebase's architecture, patterns, tech stack, and design decisions. Reads key files and provides architectural insights.",
+    description:
+      "Uses LLM to provide intelligent analysis of a codebase's architecture, patterns, tech stack, and design decisions. Reads key files and provides architectural insights.",
     inputSchema: {
       type: "object",
       properties: {
@@ -76,7 +78,8 @@ const tools: Tool[] = [
   },
   {
     name: "map_dependencies",
-    description: "Maps dependencies between microservices in a project. Detects HTTP API calls between services, shared database connections, message queue connections, and service registry usage.",
+    description:
+      "Maps dependencies between microservices in a project. Detects HTTP API calls between services, shared database connections, message queue connections, and service registry usage.",
     inputSchema: {
       type: "object",
       properties: {
@@ -90,7 +93,8 @@ const tools: Tool[] = [
   },
   {
     name: "generate_documentation",
-    description: "Generates comprehensive architecture documentation including README, C4 model diagrams, service catalogs, API documentation, runbooks, and dependency matrices. Creates a complete documentation suite.",
+    description:
+      "Generates comprehensive architecture documentation including README, C4 model diagrams, service catalogs, API documentation, runbooks, and dependency matrices. Creates a complete documentation suite.",
     inputSchema: {
       type: "object",
       properties: {
@@ -121,7 +125,7 @@ export function createMCPServer(): Server {
       capabilities: {
         tools: {},
       },
-    }
+    },
   );
 
   // Handle tool list requests
@@ -141,16 +145,20 @@ export function createMCPServer(): Server {
       switch (name) {
         case "analyze_service": {
           const { servicePath } = args as { servicePath: string };
-          
+
           if (!fs.existsSync(servicePath)) {
             return {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify({
-                    error: `Path does not exist: ${servicePath}`,
-                    hint: "Please provide an absolute path to the service directory",
-                  }, null, 2),
+                  text: JSON.stringify(
+                    {
+                      error: `Path does not exist: ${servicePath}`,
+                      hint: "Please provide an absolute path to the service directory",
+                    },
+                    null,
+                    2,
+                  ),
                 },
               ],
               isError: true,
@@ -163,16 +171,20 @@ export function createMCPServer(): Server {
 
         case "analyze_workspace": {
           const { workspacePath } = args as { workspacePath: string };
-          
+
           if (!fs.existsSync(workspacePath)) {
             return {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify({
-                    error: `Path does not exist: ${workspacePath}`,
-                    hint: "Please provide an absolute path to the workspace directory",
-                  }, null, 2),
+                  text: JSON.stringify(
+                    {
+                      error: `Path does not exist: ${workspacePath}`,
+                      hint: "Please provide an absolute path to the workspace directory",
+                    },
+                    null,
+                    2,
+                  ),
                 },
               ],
               isError: true,
@@ -185,17 +197,24 @@ export function createMCPServer(): Server {
         }
 
         case "analyze_code_llm": {
-          const { projectPath, maxFileLines = 100 } = args as { projectPath: string; maxFileLines?: number };
-          
+          const { projectPath, maxFileLines = 100 } = args as {
+            projectPath: string;
+            maxFileLines?: number;
+          };
+
           if (!fs.existsSync(projectPath)) {
             return {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify({
-                    error: `Path does not exist: ${projectPath}`,
-                    hint: "Please provide an absolute path to the project directory",
-                  }, null, 2),
+                  text: JSON.stringify(
+                    {
+                      error: `Path does not exist: ${projectPath}`,
+                      hint: "Please provide an absolute path to the project directory",
+                    },
+                    null,
+                    2,
+                  ),
                 },
               ],
               isError: true,
@@ -208,33 +227,44 @@ export function createMCPServer(): Server {
 
         case "map_dependencies": {
           // Support both projectRoot and projectPath for compatibility
-          const { projectRoot, projectPath } = args as { projectRoot?: string; projectPath?: string };
+          const { projectRoot, projectPath } = args as {
+            projectRoot?: string;
+            projectPath?: string;
+          };
           const resolvedRoot = projectRoot || projectPath;
-          
+
           if (!resolvedRoot) {
             return {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify({
-                    error: `Missing required parameter: projectRoot or projectPath`,
-                    hint: "Please provide either projectRoot or projectPath parameter",
-                  }, null, 2),
+                  text: JSON.stringify(
+                    {
+                      error: `Missing required parameter: projectRoot or projectPath`,
+                      hint: "Please provide either projectRoot or projectPath parameter",
+                    },
+                    null,
+                    2,
+                  ),
                 },
               ],
               isError: true,
             };
           }
-          
+
           if (!fs.existsSync(resolvedRoot)) {
             return {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify({
-                    error: `Path does not exist: ${resolvedRoot}`,
-                    hint: "Please provide an absolute path to the project root",
-                  }, null, 2),
+                  text: JSON.stringify(
+                    {
+                      error: `Path does not exist: ${resolvedRoot}`,
+                      hint: "Please provide an absolute path to the project root",
+                    },
+                    null,
+                    2,
+                  ),
                 },
               ],
               isError: true,
@@ -248,22 +278,26 @@ export function createMCPServer(): Server {
 
         case "generate_documentation": {
           const { outputPath, projectPath } = args as { outputPath: string; projectPath: string };
-          
+
           if (!outputPath || !projectPath) {
             return {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify({
-                    error: `Missing required parameters: outputPath and projectPath are required`,
-                    hint: "Please provide both outputPath and projectPath parameters",
-                  }, null, 2),
+                  text: JSON.stringify(
+                    {
+                      error: `Missing required parameters: outputPath and projectPath are required`,
+                      hint: "Please provide both outputPath and projectPath parameters",
+                    },
+                    null,
+                    2,
+                  ),
                 },
               ],
               isError: true,
             };
           }
-          
+
           // Create output directory if it doesn't exist
           if (!fs.existsSync(outputPath)) {
             fs.mkdirSync(outputPath, { recursive: true });
@@ -290,10 +324,14 @@ export function createMCPServer(): Server {
             content: [
               {
                 type: "text",
-                text: JSON.stringify({
-                  error: `Unknown tool: ${name}`,
-                  availableTools: tools.map(t => t.name),
-                }, null, 2),
+                text: JSON.stringify(
+                  {
+                    error: `Unknown tool: ${name}`,
+                    availableTools: tools.map((t) => t.name),
+                  },
+                  null,
+                  2,
+                ),
               },
             ],
             isError: true,
@@ -318,16 +356,20 @@ export function createMCPServer(): Server {
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      
+
       return {
         content: [
           {
             type: "text",
-            text: JSON.stringify({
-              error: errorMessage,
-              tool: name,
-              hint: "Make sure required environment variables are set (LLM_API_KEY, etc.)",
-            }, null, 2),
+            text: JSON.stringify(
+              {
+                error: errorMessage,
+                tool: name,
+                hint: "Make sure required environment variables are set (LLM_API_KEY, etc.)",
+              },
+              null,
+              2,
+            ),
           },
         ],
         isError: true,

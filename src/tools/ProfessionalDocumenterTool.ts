@@ -1,7 +1,7 @@
 import { DynamicStructuredTool } from "@langchain/core/tools";
-import { z } from "zod";
 import * as fs from "fs";
 import * as path from "path";
+import { z } from "zod";
 
 export const ProfessionalDocumenterTool = new DynamicStructuredTool({
   name: "generate_professional_docs",
@@ -51,11 +51,11 @@ export const ProfessionalDocumenterTool = new DynamicStructuredTool({
     // Generate per-service docs
     for (const [serviceName, service] of Object.entries(services)) {
       const svc = service as any;
-      
+
       const apiContract = generateApiContract(serviceName, svc);
       fs.writeFileSync(path.join(docsPath, "api-contracts", `${serviceName}.md`), apiContract);
       generatedFiles.push(`api-contracts/${serviceName}.md`);
-      
+
       const runbook = generateRunbook(serviceName, svc, dependencies);
       fs.writeFileSync(path.join(docsPath, "runbooks", `${serviceName}.md`), runbook);
       generatedFiles.push(`runbooks/${serviceName}.md`);
@@ -93,7 +93,7 @@ export const ProfessionalDocumenterTool = new DynamicStructuredTool({
 function generateC4Context(projectName: string, services: any, dependencies: any): string {
   const serviceNames = Object.keys(services);
   const systemName = projectName.charAt(0).toUpperCase() + projectName.slice(1);
-  
+
   return `# C4 Model - System Context
 
 ## ${systemName}
@@ -104,7 +104,10 @@ ${systemName} is a microservices architecture with ${serviceNames.length} servic
 ### Users & Actors
 | Actor | Description |
 |-------|-------------|
-${serviceNames.filter(n => n.includes("gateway")).map(n => `| ${n} | API Gateway / Entry point |`).join("\n")}
+${serviceNames
+  .filter((n) => n.includes("gateway"))
+  .map((n) => `| ${n} | API Gateway / Entry point |`)
+  .join("\n")}
 | External Users | System consumers |
 
 ### Context Diagram
@@ -114,9 +117,15 @@ C4Context
   title System Context - ${systemName}
   Person(user, "User", "System user")
   System_Boundary(system, "${systemName}") {
-    ${serviceNames.filter(n => !n.includes("gateway")).map(n => `System(${n.replace(/-/g, "_")}, "${n}", "${services[n]?.techStack?.[0] || "Service"}")`).join("\n    ")}
+    ${serviceNames
+      .filter((n) => !n.includes("gateway"))
+      .map(
+        (n) =>
+          `System(${n.replace(/-/g, "_")}, "${n}", "${services[n]?.techStack?.[0] || "Service"}")`,
+      )
+      .join("\n    ")}
   }
-  Rel(user, ${serviceNames.find(n => n.includes("gateway"))?.replace(/-/g, "_") || "system"}, "Uses")
+  Rel(user, ${serviceNames.find((n) => n.includes("gateway"))?.replace(/-/g, "_") || "system"}, "Uses")
 \`\`\`
 
 ---
@@ -133,15 +142,17 @@ function generateC4Container(projectName: string, services: any, dependencies: a
 ## ${systemName} - Containers
 
 ### Technology Stack Summary
-${serviceNames.map(name => `- **${name}**: ${services[name]?.techStack?.join(", ") || "Unknown"}`).join("\n")}
+${serviceNames.map((name) => `- **${name}**: ${services[name]?.techStack?.join(", ") || "Unknown"}`).join("\n")}
 
 ### Container Catalog
 | Service | Technology | Description | Database |
 |---------|------------|-------------|----------|
-${serviceNames.map(name => {
-  const svc = services[name];
-  return `| ${name} | ${svc?.techStack?.join(", ") || "Unknown"} | ${svc?.description || "Service"} | ${svc?.databases?.join(", ") || "None"} |`;
-}).join("\n")}
+${serviceNames
+  .map((name) => {
+    const svc = services[name];
+    return `| ${name} | ${svc?.techStack?.join(", ") || "Unknown"} | ${svc?.description || "Service"} | ${svc?.databases?.join(", ") || "None"} |`;
+  })
+  .join("\n")}
 
 ### Container Diagram
 
@@ -150,10 +161,12 @@ C4Container
   title Container Diagram - ${systemName}
   Person(user, "User")
   Container_Boundary(system, "${systemName}") {
-    ${serviceNames.map(name => {
-      const svc = services[name];
-      return `Container(${name.replace(/-/g, "_")}, "${name}", "${svc?.techStack?.[0] || "Service"}", "${svc?.description || ""}")`;
-    }).join("\n    ")}
+    ${serviceNames
+      .map((name) => {
+        const svc = services[name];
+        return `Container(${name.replace(/-/g, "_")}, "${name}", "${svc?.techStack?.[0] || "Service"}", "${svc?.description || ""}")`;
+      })
+      .join("\n    ")}
   }
   Rel(user, ${serviceNames[0]?.replace(/-/g, "_") || "system"}, "Uses")
 \`\`\`
@@ -164,9 +177,11 @@ C4Container
 }
 
 function generateServiceCatalog(services: any): string {
-  const rows = Object.entries(services).map(([name, svc]: [string, any]) => {
-    return `| [${name}](${name}.md) | ${svc?.techStack?.join(", ") || "Unknown"} | ${svc?.databases?.join(", ") || "None"} | ${svc?.endpoints?.length || 0} |`;
-  }).join("\n");
+  const rows = Object.entries(services)
+    .map(([name, svc]: [string, any]) => {
+      return `| [${name}](${name}.md) | ${svc?.techStack?.join(", ") || "Unknown"} | ${svc?.databases?.join(", ") || "None"} | ${svc?.endpoints?.length || 0} |`;
+    })
+    .join("\n");
 
   return `# Service Catalog
 
@@ -174,10 +189,14 @@ function generateServiceCatalog(services: any): string {
 |---------|------------|----------|-----------|
 ${rows}
 
-${Object.entries(services).map(([name, svc]: [string, any]) => `
+${Object.entries(services)
+  .map(
+    ([name, svc]: [string, any]) => `
 ### ${name}
 ${svc?.description || "No description available."}
-`).join("\n")}
+`,
+  )
+  .join("\n")}
 
 ---
 *Generated by Microservice Architect Agent*
@@ -186,7 +205,7 @@ ${svc?.description || "No description available."}
 
 function generateApiContract(serviceName: string, service: any): string {
   const endpoints = service?.endpoints || [];
-  
+
   return `# API Contract: ${serviceName}
 
 ## Overview
@@ -196,7 +215,9 @@ function generateApiContract(serviceName: string, service: any): string {
 
 ## Endpoints
 
-${endpoints.map((endpoint: string) => `
+${endpoints
+  .map(
+    (endpoint: string) => `
 ### ${endpoint}
 
 **Method**: \`GET\`  
@@ -215,7 +236,9 @@ Content-Type: application/json
   "data": {}
 }
 \`\`\`
-`).join("\n---\n")}
+`,
+  )
+  .join("\n---\n")}
 
 ---
 *Generated by Microservice Architect Agent*
@@ -224,7 +247,7 @@ Content-Type: application/json
 
 function generateRunbook(serviceName: string, service: any, dependencies: any): string {
   const deps = dependencies?.services?.[serviceName];
-  
+
   return `# Runbook: ${serviceName}
 
 ## Service Overview
@@ -259,15 +282,15 @@ ${deps?.calledBy?.map((d: string) => `- ${d}`).join("\n") || "- None"}
 
 function generateDependencyMatrix(services: any, dependencies: any): string {
   const serviceNames = Object.keys(services);
-  
+
   return `# Dependency Matrix
 
 ## Overview
 Matrix showing service-to-service dependencies.
 
-| Service | ${serviceNames.map(s => s.substring(0, 8)).join(" | ")} |
+| Service | ${serviceNames.map((s) => s.substring(0, 8)).join(" | ")} |
 |---------|${serviceNames.map(() => "--------").join("|")}|
-| ${serviceNames.map(row => `${row} | ${serviceNames.map(col => row === col ? "-" : (dependencies?.services?.[row]?.calls?.includes(col) ? "✓" : " ")).join(" | ")}`).join("\n| ")} |
+| ${serviceNames.map((row) => `${row} | ${serviceNames.map((col) => (row === col ? "-" : dependencies?.services?.[row]?.calls?.includes(col) ? "✓" : " ")).join(" | ")}`).join("\n| ")} |
 
 ## Legend
 - **✓**: Has dependency
@@ -301,7 +324,7 @@ This directory contains Architecture Decision Records.
 
 function generateIndex(projectName: string, files: string[], services: any): string {
   const timestamp = new Date().toISOString().split("T")[0];
-  
+
   return `# ${projectName.charAt(0).toUpperCase() + projectName.slice(1)} - Architecture Documentation
 
 ## Quick Navigation
@@ -323,8 +346,8 @@ function generateIndex(projectName: string, files: string[], services: any): str
 | Metric | Count |
 |--------|-------|
 | Total Services | ${Object.keys(services).length} |
-| API Contracts | ${files.filter(f => f.startsWith("api-contracts/")).length} |
-| Runbooks | ${files.filter(f => f.startsWith("runbooks/")).length} |
+| API Contracts | ${files.filter((f) => f.startsWith("api-contracts/")).length} |
+| Runbooks | ${files.filter((f) => f.startsWith("runbooks/")).length} |
 | C4 Diagrams | 2 |
 
 ---

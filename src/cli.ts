@@ -1,15 +1,15 @@
 #!/usr/bin/env bun
 import * as p from "@clack/prompts";
 import * as path from "path";
-import { MicroserviceArchitectAgent } from "./agents/MicroserviceArchitectAgent";
 import { setTimeout } from "timers/promises";
+import { MicroserviceArchitectAgent } from "./agents/MicroserviceArchitectAgent";
 
 // Spinner animation
 const sleep = (ms: number) => setTimeout(ms);
 
 async function main() {
   console.clear();
-  
+
   p.intro(`
 ╔══════════════════════════════════════════════════════════╗
 ║                                                          ║
@@ -26,7 +26,7 @@ async function main() {
       message: "Continue anyway? (Analysis will fail)",
       initialValue: false,
     });
-    
+
     if (!shouldContinue || p.isCancel(shouldContinue)) {
       p.outro("Goodbye! 👋");
       process.exit(0);
@@ -72,7 +72,11 @@ async function main() {
   const analysisType = await p.select({
     message: "What type of analysis do you want to perform?",
     options: [
-      { value: "full", label: "🔍 Full Analysis", hint: "Complete workspace + dependencies + docs" },
+      {
+        value: "full",
+        label: "🔍 Full Analysis",
+        hint: "Complete workspace + dependencies + docs",
+      },
       { value: "workspace", label: "📁 Workspace Scan", hint: "Just discover services" },
       { value: "dependencies", label: "🔗 Dependencies", hint: "Map service connections" },
       { value: "documentation", label: "📝 Documentation", hint: "Generate markdown docs" },
@@ -96,25 +100,28 @@ async function main() {
 
   // Start analysis
   const s = p.spinner();
-  
+
   try {
     const agent = new MicroserviceArchitectAgent();
 
     if (analysisType === "workspace") {
       s.start("🔍 Scanning workspace for services...");
       await sleep(500);
-      
+
       const workspace = await agent.analyzeWorkspace(absoluteWorkspacePath);
       s.stop("✅ Workspace scan complete!");
 
       if (workspace) {
-        p.note(`
+        p.note(
+          `
 📊 Workspace Summary:
 • Found ${workspace.totalServices} services
 • Languages: ${Object.keys(workspace.summary.languages).join(", ")}
 • Databases: ${workspace.summary.databases.join(", ") || "None detected"}
 • Message Queues: ${workspace.summary.messageQueues.join(", ") || "None detected"}
-        `, "Results");
+        `,
+          "Results",
+        );
 
         // Show services table
         const serviceTable = workspace.services
@@ -128,7 +135,7 @@ async function main() {
 
       s.message("📁 Analyzing workspace...");
       const workspace = await agent.analyzeWorkspace(absoluteWorkspacePath);
-      
+
       if (!workspace || workspace.totalServices === 0) {
         s.stop("⚠️ No services found in workspace");
         p.outro("Analysis complete. No services detected.");
@@ -136,11 +143,11 @@ async function main() {
       }
 
       s.message(`🔍 Found ${workspace.totalServices} services. Analyzing in detail...`);
-      
+
       // Show progress
       let analyzed = 0;
       const total = workspace.totalServices;
-      
+
       for (const service of workspace.services) {
         analyzed++;
         s.message(`🔍 Analyzing ${service.name} (${analyzed}/${total})...`);
@@ -153,28 +160,25 @@ async function main() {
       await sleep(500);
 
       s.message("📝 Generating documentation...");
-      const docs = await agent.generateDocumentation(
-        absoluteOutputPath,
-        {},
-        dependencies || {}
-      );
+      const docs = await agent.generateDocumentation(absoluteOutputPath, {}, dependencies || {});
       await sleep(500);
 
       s.stop("✅ Analysis complete!");
 
       // Results
-      p.note(`
+      p.note(
+        `
 📊 Analysis Results:
 • Services analyzed: ${workspace.totalServices}
 • Languages: ${Object.keys(workspace.summary.languages).join(", ")}
 • HTTP connections: ${dependencies?.summary?.httpConnections || 0}
 • Documentation files: ${docs?.generatedFiles?.length || 0}
-      `, "Summary");
+      `,
+        "Summary",
+      );
 
       if (docs?.generatedFiles) {
-        const filesList = docs.generatedFiles
-          .map((f: string) => `  📄 ${f}`)
-          .join("\n");
+        const filesList = docs.generatedFiles.map((f: string) => `  📄 ${f}`).join("\n");
         p.note(filesList, "Generated Documentation");
       }
 
@@ -187,13 +191,16 @@ async function main() {
       s.stop("✅ Dependency mapping complete!");
 
       if (dependencies) {
-        p.note(`
+        p.note(
+          `
 🔗 Dependency Summary:
 • Total services: ${dependencies.summary.totalServices}
 • HTTP connections: ${dependencies.summary.httpConnections}
 • Services with database: ${dependencies.summary.servicesWithDatabase}
 • Services with messaging: ${dependencies.summary.servicesWithMessaging}
-        `, "Dependencies");
+        `,
+          "Dependencies",
+        );
 
         if (dependencies.dependencyGraph?.edges?.length > 0) {
           const connections = dependencies.dependencyGraph.edges
@@ -206,17 +213,11 @@ async function main() {
       s.start("📝 Generating documentation...");
       await sleep(500);
 
-      const docs = await agent.generateDocumentation(
-        absoluteOutputPath,
-        {},
-        {}
-      );
+      const docs = await agent.generateDocumentation(absoluteOutputPath, {}, {});
       s.stop("✅ Documentation generated!");
 
       if (docs?.generatedFiles) {
-        const filesList = docs.generatedFiles
-          .map((f: string) => `  📄 ${f}`)
-          .join("\n");
+        const filesList = docs.generatedFiles.map((f: string) => `  📄 ${f}`).join("\n");
         p.note(filesList, "Generated Files");
       }
     }

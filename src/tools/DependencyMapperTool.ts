@@ -1,7 +1,7 @@
 import { tool } from "@langchain/core/tools";
-import { z } from "zod";
 import * as fs from "fs";
 import * as path from "path";
+import { z } from "zod";
 
 /**
  * Maps dependencies between microservices in a project.
@@ -78,11 +78,12 @@ export const DependencyMapperTool = tool(
   },
   {
     name: "map_dependencies",
-    description: "Maps dependencies between microservices including HTTP calls, shared databases, and message queues",
+    description:
+      "Maps dependencies between microservices including HTTP calls, shared databases, and message queues",
     schema: z.object({
       projectRoot: z.string().describe("Root path of the microservices project"),
     }),
-  }
+  },
 );
 
 function findServiceDirectories(projectRoot: string): string[] {
@@ -205,7 +206,7 @@ function scanForMessageQueueConnections(servicePath: string): string[] {
       "@azure/service-bus": "Azure Service Bus",
       "google-cloud-pubsub": "Google Cloud Pub/Sub",
       nats: "NATS",
-      "mqtt": "MQTT",
+      mqtt: "MQTT",
     };
 
     for (const [pkgName, mqName] of Object.entries(mqPackages)) {
@@ -227,8 +228,10 @@ function scanForMessageQueueConnections(servicePath: string): string[] {
   return [...new Set(queues)];
 }
 
-function buildConnectionGraph(services: Record<string, any>): Array<{from: string; to: string; type: string}> {
-  const connections: Array<{from: string; to: string; type: string}> = [];
+function buildConnectionGraph(
+  services: Record<string, any>,
+): Array<{ from: string; to: string; type: string }> {
+  const connections: Array<{ from: string; to: string; type: string }> = [];
   const serviceNames = Object.keys(services);
 
   for (const [serviceName, data] of Object.entries(services)) {
@@ -267,7 +270,7 @@ function buildConnectionGraph(services: Record<string, any>): Array<{from: strin
 
 function detectServiceRegistry(projectRoot: string): string | null {
   const dockerComposePath = path.join(projectRoot, "docker-compose.yml");
-  
+
   if (!fs.existsSync(dockerComposePath)) return null;
 
   const compose = fs.readFileSync(dockerComposePath, "utf-8").toLowerCase();

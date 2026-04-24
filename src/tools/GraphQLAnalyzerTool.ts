@@ -1,7 +1,7 @@
 import { DynamicStructuredTool } from "@langchain/core/tools";
-import { z } from "zod";
 import * as fs from "fs";
 import * as path from "path";
+import { z } from "zod";
 
 /**
  * GraphQLAnalyzerTool - Analyzes GraphQL schemas and operations in microservices
@@ -70,21 +70,22 @@ export const GraphQLAnalyzerTool = new DynamicStructuredTool({
 
       // Also check for .ts/.js files with GraphQL definitions
       if (!schemaContent) {
-        const searchPaths = [
-          path.join(servicePath, "src"),
-          path.join(servicePath, "graphql"),
-        ];
+        const searchPaths = [path.join(servicePath, "src"), path.join(servicePath, "graphql")];
 
         for (const searchPath of searchPaths) {
           if (!fs.existsSync(searchPath)) continue;
-          
+
           const files = fs.readdirSync(searchPath, { recursive: true }) as string[];
           for (const file of files) {
             if (typeof file === "string" && (file.endsWith(".ts") || file.endsWith(".js"))) {
               const fullPath = path.join(searchPath, file);
               if (fs.existsSync(fullPath)) {
                 const content = fs.readFileSync(fullPath, "utf-8");
-                if (content.includes("gql`") || content.includes("typeDefs") || content.includes("@key")) {
+                if (
+                  content.includes("gql`") ||
+                  content.includes("typeDefs") ||
+                  content.includes("@key")
+                ) {
                   schemaContent += content + "\n";
                 }
               }
@@ -128,19 +129,30 @@ export const GraphQLAnalyzerTool = new DynamicStructuredTool({
         }
 
         // Extract custom Types
-        const typeMatches = schemaContent.match(/type\s+(?!Query|Mutation|Subscription)(\w+)\s*{([^}]+)}/g);
+        const typeMatches = schemaContent.match(
+          /type\s+(?!Query|Mutation|Subscription)(\w+)\s*{([^}]+)}/g,
+        );
         if (typeMatches) {
           result.schema.types = typeMatches.map((type) => {
             const match = type.match(/type\s+(\w+)\s*{([^}]+)}/s);
             return {
               name: match?.[1] || "Unknown",
-              fields: match?.[2]?.trim().split("\n").map((f) => f.trim()).filter(Boolean) || [],
+              fields:
+                match?.[2]
+                  ?.trim()
+                  .split("\n")
+                  .map((f) => f.trim())
+                  .filter(Boolean) || [],
             };
           });
         }
 
         // Extract Federation directives
-        if (schemaContent.includes("@key") || schemaContent.includes("@extends") || schemaContent.includes("@external")) {
+        if (
+          schemaContent.includes("@key") ||
+          schemaContent.includes("@extends") ||
+          schemaContent.includes("@external")
+        ) {
           result.federation.isFederated = true;
 
           // Find @key directives
@@ -155,10 +167,12 @@ export const GraphQLAnalyzerTool = new DynamicStructuredTool({
           // Find entities
           const entityMatches = schemaContent.match(/type\s+(\w+)\s+[^@]*@key/g);
           if (entityMatches) {
-            result.federation.entities = entityMatches.map((m) => {
-              const match = m.match(/type\s+(\w+)/);
-              return match?.[1] || "";
-            }).filter(Boolean);
+            result.federation.entities = entityMatches
+              .map((m) => {
+                const match = m.match(/type\s+(\w+)/);
+                return match?.[1] || "";
+              })
+              .filter(Boolean);
           }
 
           // Find @extends
@@ -197,14 +211,17 @@ export const GraphQLAnalyzerTool = new DynamicStructuredTool({
         }
 
         // Infer collections from type names (MongoDB convention)
-        const collectionTypes = result.schema.types.filter((t) => 
-          t.name.toLowerCase().endsWith("collection") || 
-          t.name.toLowerCase().endsWith("document")
+        const collectionTypes = result.schema.types.filter(
+          (t) =>
+            t.name.toLowerCase().endsWith("collection") ||
+            t.name.toLowerCase().endsWith("document"),
         );
         result.dataSources.collections = collectionTypes.map((t) => t.name);
 
         // Find relationships (@resolveReference, @requires)
-        const relationshipMatches = schemaContent.match(/(\w+):\s*\w+!?\s*@requires|(\w+)\s*\([^)]*\)\s*:\s*\w+\!?\s*@resolveReference/g);
+        const relationshipMatches = schemaContent.match(
+          /(\w+):\s*\w+!?\s*@requires|(\w+)\s*\([^)]*\)\s*:\s*\w+!?\s*@resolveReference/g,
+        );
         if (relationshipMatches) {
           result.relationships = relationshipMatches.map((r) => ({
             type: "federation",
@@ -222,7 +239,7 @@ export const GraphQLAnalyzerTool = new DynamicStructuredTool({
       for (const prismaPath of prismaPaths) {
         if (fs.existsSync(prismaPath)) {
           const prismaContent = fs.readFileSync(prismaPath, "utf-8");
-          
+
           // Extract models (tables)
           const modelMatches = prismaContent.match(/model\s+(\w+)\s*{([^}]+)}/g);
           if (modelMatches) {
@@ -304,10 +321,10 @@ export const FederationMapperTool = new DynamicStructuredTool({
       // Find gateway
       const gatewayIndicators = ["gateway", "federation-gateway", "supergraph"];
       const entries = fs.readdirSync(projectRoot, { withFileTypes: true });
-      
+
       for (const entry of entries) {
         if (!entry.isDirectory()) continue;
-        
+
         const name = entry.name.toLowerCase();
         if (gatewayIndicators.some((ind) => name.includes(ind))) {
           result.gateway = entry.name;
@@ -340,16 +357,16 @@ export const FederationMapperTool = new DynamicStructuredTool({
         // Search for GraphQL files
         const searchForSchemas = (dir: string) => {
           if (!fs.existsSync(dir)) return;
-          
+
           const files = fs.readdirSync(dir, { withFileTypes: true });
           for (const file of files) {
             const fullPath = path.join(dir, file.name);
-            
+
             if (file.isDirectory()) {
               searchForSchemas(fullPath);
             } else if (file.name.endsWith(".graphql") || file.name.endsWith(".gql")) {
               const content = fs.readFileSync(fullPath, "utf-8");
-              
+
               // Find entities owned by this service
               const entityMatches = content.match(/type\s+(\w+)\s+[^@]*@key/g);
               if (entityMatches) {
@@ -358,9 +375,13 @@ export const FederationMapperTool = new DynamicStructuredTool({
                   if (match?.[1]) {
                     serviceInfo.entities.push(match[1]);
                     serviceInfo.owns.push(match[1]);
-                    
+
                     if (!result.entities[match[1]]) {
-                      result.entities[match[1]] = { owner: entry.name, fields: [], referencedBy: [] };
+                      result.entities[match[1]] = {
+                        owner: entry.name,
+                        fields: [],
+                        referencedBy: [],
+                      };
                     }
                   }
                 });
@@ -392,7 +413,9 @@ export const FederationMapperTool = new DynamicStructuredTool({
 
       // Build supergraph
       for (const [entity, info] of Object.entries(result.entities)) {
-        const entityServices = result.services.filter((s) => s.references.some((r: any) => r.entity === entity));
+        const entityServices = result.services.filter((s) =>
+          s.references.some((r: any) => r.entity === entity),
+        );
         info.referencedBy = entityServices.map((s) => s.name);
 
         result.supergraph.push({
@@ -437,7 +460,7 @@ export const DatabaseSchemaAnalyzer = new DynamicStructuredTool({
       const prismaPath = path.join(servicePath, "prisma", "schema.prisma");
       if (fs.existsSync(prismaPath)) {
         const prismaContent = fs.readFileSync(prismaPath, "utf-8");
-        
+
         // Detect database type
         const providerMatch = prismaContent.match(/provider\s*=\s*["']([^"']+)["']/);
         if (providerMatch) {
@@ -456,9 +479,9 @@ export const DatabaseSchemaAnalyzer = new DynamicStructuredTool({
         for (const match of modelMatches) {
           const modelName = match[1];
           const modelBody = match[2];
-          
+
           const fields = modelBody.match(/(\w+)\s+\w+[^\n]*/g)?.map((f) => f.trim()) || [];
-          
+
           result.tables.push({
             name: modelName,
             fields: fields.map((f) => {
@@ -478,13 +501,16 @@ export const DatabaseSchemaAnalyzer = new DynamicStructuredTool({
           if (file.endsWith(".ts")) {
             const content = fs.readFileSync(path.join(modelsPath, file), "utf-8");
             const collectionName = file.replace(".ts", "");
-            
+
             // Extract schema fields
             const fieldMatches = content.match(/(\w+):\s*{(\s*type:[^}]+)}/g);
-            const fields = fieldMatches?.map((m) => {
-              const match = m.match(/(\w+):\s*{/);
-              return match?.[1];
-            }).filter(Boolean) || [];
+            const fields =
+              fieldMatches
+                ?.map((m) => {
+                  const match = m.match(/(\w+):\s*{/);
+                  return match?.[1];
+                })
+                .filter(Boolean) || [];
 
             result.collections.push({
               name: collectionName,
@@ -501,17 +527,19 @@ export const DatabaseSchemaAnalyzer = new DynamicStructuredTool({
         const scanForQueries = (dir: string) => {
           if (!fs.existsSync(dir)) return;
           const files = fs.readdirSync(dir, { withFileTypes: true });
-          
+
           for (const file of files) {
             const fullPath = path.join(dir, file.name);
-            
+
             if (file.isDirectory()) {
               scanForQueries(fullPath);
             } else if (file.name.endsWith(".ts")) {
               const content = fs.readFileSync(fullPath, "utf-8");
-              
+
               // Find Prisma queries
-              const prismaQueries = content.match(/prisma\.(\w+)\.(findMany|findUnique|findFirst|create|update|delete|upsert)/g);
+              const prismaQueries = content.match(
+                /prisma\.(\w+)\.(findMany|findUnique|findFirst|create|update|delete|upsert)/g,
+              );
               if (prismaQueries) {
                 prismaQueries.forEach((q) => {
                   const parts = q.split(".");
@@ -526,7 +554,9 @@ export const DatabaseSchemaAnalyzer = new DynamicStructuredTool({
               }
 
               // Find MongoDB queries
-              const mongoQueries = content.match(/\.(find|findOne|findById|create|updateOne|deleteOne)\(/g);
+              const mongoQueries = content.match(
+                /\.(find|findOne|findById|create|updateOne|deleteOne)\(/g,
+              );
               if (mongoQueries) {
                 result.queries.push({
                   type: "mongodb",

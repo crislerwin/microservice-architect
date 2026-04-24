@@ -1,9 +1,5 @@
+import { type BaseMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
 import { ChatOpenAI } from "@langchain/openai";
-import {
-  type BaseMessage,
-  HumanMessage,
-  ToolMessage,
-} from "@langchain/core/messages";
 import { SystemInfoTool } from "@/tools/SystemInfoTool.ts";
 
 export class BootstrapAgent {
@@ -47,7 +43,7 @@ export class BootstrapAgent {
             new ToolMessage({
               tool_call_id: toolCall.id!,
               content: toolOutput,
-            })
+            }),
           );
         }
       }

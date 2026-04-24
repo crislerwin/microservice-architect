@@ -1,17 +1,20 @@
 import { tool } from "@langchain/core/tools";
-import { z } from "zod";
+import { ChatOpenAI } from "@langchain/openai";
 import * as fs from "fs/promises";
 import * as path from "path";
-import { ChatOpenAI } from "@langchain/openai";
+import { z } from "zod";
 
 // Check if we should use Ollama
-const useOllama = process.env.LLM_BASE_URL?.includes('127.0.0.1:11434') || 
-                  process.env.LLM_BASE_URL?.includes('localhost:11434') ||
-                  process.env.USE_OLLAMA === 'true';
+const useOllama =
+  process.env.LLM_BASE_URL?.includes("127.0.0.1:11434") ||
+  process.env.LLM_BASE_URL?.includes("localhost:11434") ||
+  process.env.USE_OLLAMA === "true";
 
 // Ollama-compatible model (uses OpenAI-compatible API)
 const MODEL_CONFIG = {
-  model: useOllama ? (process.env.LLM_MODEL || "llama3.2:3b") : (process.env.LLM_MODEL || "gpt-4o-mini"),
+  model: useOllama
+    ? process.env.LLM_MODEL || "llama3.2:3b"
+    : process.env.LLM_MODEL || "gpt-4o-mini",
   temperature: 0.1,
   apiKey: process.env.LLM_API_KEY || (useOllama ? "ollama" : undefined),
   configuration: {
@@ -26,31 +29,43 @@ const CodebaseAnalysisSchema = z.object({
   primaryLanguage: z.string().describe("Primary programming language"),
   runtime: z.string().describe("Runtime environment (Node.js, Python, Go, etc.)"),
   webFramework: z.string().describe("Web framework being used (Express, Fastify, NestJS, etc.)"),
-  architecturePattern: z.string().describe("Architecture pattern (MVC, Clean Arch, Hexagonal, Layered, etc.)"),
-  databases: z.array(z.object({
-    name: z.string(),
-    type: z.string().describe("SQL, NoSQL, Cache, etc."),
-    purpose: z.string().describe("How it's used in the project"),
-  })),
-  externalServices: z.array(z.object({
-    name: z.string(),
-    purpose: z.string(),
-    integrationType: z.string().describe("REST API, gRPC, GraphQL, SDK, etc."),
-  })),
-  messageQueues: z.array(z.object({
-    name: z.string(),
-    purpose: z.string(),
-  })),
-  mainEndpoints: z.array(z.object({
-    method: z.string(),
-    path: z.string(),
-    description: z.string(),
-  })),
+  architecturePattern: z
+    .string()
+    .describe("Architecture pattern (MVC, Clean Arch, Hexagonal, Layered, etc.)"),
+  databases: z.array(
+    z.object({
+      name: z.string(),
+      type: z.string().describe("SQL, NoSQL, Cache, etc."),
+      purpose: z.string().describe("How it's used in the project"),
+    }),
+  ),
+  externalServices: z.array(
+    z.object({
+      name: z.string(),
+      purpose: z.string(),
+      integrationType: z.string().describe("REST API, gRPC, GraphQL, SDK, etc."),
+    }),
+  ),
+  messageQueues: z.array(
+    z.object({
+      name: z.string(),
+      purpose: z.string(),
+    }),
+  ),
+  mainEndpoints: z.array(
+    z.object({
+      method: z.string(),
+      path: z.string(),
+      description: z.string(),
+    }),
+  ),
   testFrameworks: z.array(z.string()),
-  notableDecisions: z.array(z.object({
-    decision: z.string(),
-    rationale: z.string(),
-  })),
+  notableDecisions: z.array(
+    z.object({
+      decision: z.string(),
+      rationale: z.string(),
+    }),
+  ),
   summary: z.string().describe("Brief summary of the codebase architecture"),
 });
 
@@ -58,7 +73,7 @@ export type CodebaseAnalysis = z.infer<typeof CodebaseAnalysisSchema>;
 
 /**
  * LLMCodeAnalyzerTool - Uses LLM to analyze codebase structure and architecture
- * 
+ *
  * Reads key files from the repository and uses an LLM to provide intelligent analysis
  * of the architecture, patterns, and design decisions.
  */
@@ -96,9 +111,9 @@ export const LLMCodeAnalyzerTool = tool(
       const content = response.content.toString();
 
       // Extract JSON from response
-      const jsonMatch = content.match(/```json\n?([\s\S]*?)\n?```/) || 
-                       content.match(/(\{[\s\S]*\})/);
-      
+      const jsonMatch =
+        content.match(/```json\n?([\s\S]*?)\n?```/) || content.match(/(\{[\s\S]*\})/);
+
       if (!jsonMatch) {
         return JSON.stringify({
           error: "Failed to parse LLM response as JSON",
@@ -107,16 +122,20 @@ export const LLMCodeAnalyzerTool = tool(
       }
 
       const analysis = JSON.parse(jsonMatch[1] || jsonMatch[0]);
-      
+
       // Validate with schema
       const validated = CodebaseAnalysisSchema.parse(analysis);
-      
-      return JSON.stringify({
-        success: true,
-        projectPath: resolvedPath,
-        analysis: validated,
-        filesAnalyzed: context.filesAnalyzed,
-      }, null, 2);
+
+      return JSON.stringify(
+        {
+          success: true,
+          projectPath: resolvedPath,
+          analysis: validated,
+          filesAnalyzed: context.filesAnalyzed,
+        },
+        null,
+        2,
+      );
     } catch (error: any) {
       return JSON.stringify({
         error: `LLM analysis failed: ${error.message}`,
@@ -126,12 +145,16 @@ export const LLMCodeAnalyzerTool = tool(
   },
   {
     name: "analyze_codebase_with_llm",
-    description: "Uses LLM to analyze a codebase's architecture, patterns, tech stack, and design decisions. Reads package.json, source code samples, Dockerfile, and directory structure.",
+    description:
+      "Uses LLM to analyze a codebase's architecture, patterns, tech stack, and design decisions. Reads package.json, source code samples, Dockerfile, and directory structure.",
     schema: z.object({
       projectPath: z.string().describe("Path to the project root directory to analyze"),
-      maxFileLines: z.number().optional().describe("Maximum lines to read from each source file (default: 100)"),
+      maxFileLines: z
+        .number()
+        .optional()
+        .describe("Maximum lines to read from each source file (default: 100)"),
     }),
-  }
+  },
 );
 
 /**
@@ -153,8 +176,8 @@ interface ProjectContext {
  * Gather context from project files
  */
 async function gatherProjectContext(
-  projectPath: string, 
-  maxFileLines: number
+  projectPath: string,
+  maxFileLines: number,
 ): Promise<ProjectContext> {
   const context: ProjectContext = {
     packageJson: null,
@@ -236,7 +259,7 @@ async function gatherProjectContext(
 
   // Get source code samples
   context.sourceSamples = await getSourceSamples(projectPath, maxFileLines);
-  context.filesAnalyzed.push(...context.sourceSamples.map(s => s.path));
+  context.filesAnalyzed.push(...context.sourceSamples.map((s) => s.path));
 
   return context;
 }
@@ -246,21 +269,21 @@ async function gatherProjectContext(
  */
 async function getDirectoryStructure(projectPath: string): Promise<string[]> {
   const structure: string[] = [];
-  
+
   async function scanDir(dir: string, level: number, prefix: string) {
     if (level > 2) return;
-    
+
     try {
       const entries = await fs.readdir(dir, { withFileTypes: true });
-      
+
       for (const entry of entries) {
         if (entry.name === "node_modules" || entry.name === ".git" || entry.name.startsWith(".")) {
           continue;
         }
-        
+
         const entryPath = path.join(prefix, entry.name);
         structure.push(entryPath);
-        
+
         if (entry.isDirectory() && level < 2) {
           await scanDir(path.join(dir, entry.name), level + 1, entryPath);
         }
@@ -269,7 +292,7 @@ async function getDirectoryStructure(projectPath: string): Promise<string[]> {
       // Directory not accessible
     }
   }
-  
+
   await scanDir(projectPath, 0, "");
   return structure.slice(0, 100); // Limit to 100 entries
 }
@@ -278,26 +301,26 @@ async function getDirectoryStructure(projectPath: string): Promise<string[]> {
  * Get source code samples from key files
  */
 async function getSourceSamples(
-  projectPath: string, 
-  maxLines: number
+  projectPath: string,
+  maxLines: number,
 ): Promise<{ path: string; content: string }[]> {
   const samples: { path: string; content: string }[] = [];
   const extensions = [".ts", ".js", ".tsx", ".jsx", ".go", ".py", ".java", ".rs", ".php"];
-  
+
   // Priority directories
   const priorityDirs = ["src", "lib", "api", "cmd", "internal", "pkg"];
   const scannedFiles = new Set<string>();
-  
+
   async function scanForSamples(dir: string, maxFiles: number) {
     try {
       const entries = await fs.readdir(dir, { withFileTypes: true, recursive: false });
-      
+
       for (const entry of entries) {
         if (samples.length >= maxFiles) break;
         if (scannedFiles.has(entry.name)) continue;
-        
+
         const fullPath = path.join(dir, entry.name);
-        
+
         if (entry.isDirectory() && !entry.name.startsWith(".") && entry.name !== "node_modules") {
           await scanForSamples(fullPath, maxFiles);
         } else if (entry.isFile()) {
@@ -319,7 +342,7 @@ async function getSourceSamples(
       // Directory not accessible
     }
   }
-  
+
   // First scan priority directories
   for (const priorityDir of priorityDirs) {
     const fullPath = path.join(projectPath, priorityDir);
@@ -332,12 +355,12 @@ async function getSourceSamples(
       // Directory doesn't exist
     }
   }
-  
+
   // Then scan root if needed
   if (samples.length < 5) {
     await scanForSamples(projectPath, 5);
   }
-  
+
   return samples.slice(0, 8); // Max 8 samples
 }
 
@@ -346,69 +369,83 @@ async function getSourceSamples(
  */
 function buildAnalysisPrompt(context: ProjectContext): string {
   const parts: string[] = [];
-  
-  parts.push(`You are an expert software architect. Analyze the following codebase and provide a detailed architectural analysis.`);
+
+  parts.push(
+    `You are an expert software architect. Analyze the following codebase and provide a detailed architectural analysis.`,
+  );
   parts.push(`\n## Instructions\n`);
-  parts.push(`Respond with ONLY a JSON object (no markdown code blocks around it) matching this exact structure:`);
-  parts.push(JSON.stringify({
-    primaryLanguage: "string",
-    runtime: "string",
-    webFramework: "string",
-    architecturePattern: "string",
-    databases: [{ name: "string", type: "string", purpose: "string" }],
-    externalServices: [{ name: "string", purpose: "string", integrationType: "string" }],
-    messageQueues: [{ name: "string", purpose: "string" }],
-    mainEndpoints: [{ method: "string", path: "string", description: "string" }],
-    testFrameworks: ["string"],
-    notableDecisions: [{ decision: "string", rationale: "string" }],
-    summary: "string",
-  }, null, 2));
-  
+  parts.push(
+    `Respond with ONLY a JSON object (no markdown code blocks around it) matching this exact structure:`,
+  );
+  parts.push(
+    JSON.stringify(
+      {
+        primaryLanguage: "string",
+        runtime: "string",
+        webFramework: "string",
+        architecturePattern: "string",
+        databases: [{ name: "string", type: "string", purpose: "string" }],
+        externalServices: [{ name: "string", purpose: "string", integrationType: "string" }],
+        messageQueues: [{ name: "string", purpose: "string" }],
+        mainEndpoints: [{ method: "string", path: "string", description: "string" }],
+        testFrameworks: ["string"],
+        notableDecisions: [{ decision: "string", rationale: "string" }],
+        summary: "string",
+      },
+      null,
+      2,
+    ),
+  );
+
   parts.push(`\n## Project Context\n`);
-  
+
   if (context.packageJson) {
     parts.push(`\n### package.json\n`);
     parts.push(`Name: ${context.packageJson.name || "N/A"}`);
-    parts.push(`Dependencies: ${JSON.stringify(context.packageJson.dependencies || {}, null, 2).slice(0, 2000)}`);
-    parts.push(`DevDependencies: ${JSON.stringify(Object.keys(context.packageJson.devDependencies || {})).slice(0, 500)}`);
+    parts.push(
+      `Dependencies: ${JSON.stringify(context.packageJson.dependencies || {}, null, 2).slice(0, 2000)}`,
+    );
+    parts.push(
+      `DevDependencies: ${JSON.stringify(Object.keys(context.packageJson.devDependencies || {})).slice(0, 500)}`,
+    );
     if (context.packageJson.scripts) {
       parts.push(`Scripts: ${JSON.stringify(context.packageJson.scripts, null, 2)}`);
     }
   }
-  
+
   if (context.tsConfig) {
     parts.push(`\n### tsconfig.json\n`);
     parts.push(JSON.stringify(context.tsConfig, null, 2).slice(0, 1000));
   }
-  
+
   if (context.directoryStructure.length > 0) {
     parts.push(`\n### Directory Structure\n`);
     parts.push("```");
     parts.push(context.directoryStructure.join("\n"));
     parts.push("```");
   }
-  
+
   if (context.dockerfile) {
     parts.push(`\n### Dockerfile\n`);
     parts.push("```dockerfile");
     parts.push(context.dockerfile.slice(0, 1500));
     parts.push("```");
   }
-  
+
   if (context.dockerCompose) {
     parts.push(`\n### docker-compose.yml\n`);
     parts.push("```yaml");
     parts.push(context.dockerCompose.slice(0, 1500));
     parts.push("```");
   }
-  
+
   if (context.envExample) {
     parts.push(`\n### .env.example\n`);
     parts.push("```");
     parts.push(context.envExample.slice(0, 1000));
     parts.push("```");
   }
-  
+
   if (context.sourceSamples.length > 0) {
     parts.push(`\n### Source Code Samples\n`);
     for (const sample of context.sourceSamples.slice(0, 5)) {
@@ -418,9 +455,11 @@ function buildAnalysisPrompt(context: ProjectContext): string {
       parts.push("```");
     }
   }
-  
-  parts.push(`\n\nAnalyze this codebase and provide the JSON response with your architectural assessment.`);
-  
+
+  parts.push(
+    `\n\nAnalyze this codebase and provide the JSON response with your architectural assessment.`,
+  );
+
   return parts.join("\n");
 }
 
