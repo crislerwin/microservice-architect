@@ -1,0 +1,43 @@
+# Docker ignore for Microservice Architect
+
+# Development files
+.git
+.gitignore
+node_modules
+npm-debug.log
+yarn-error.log
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+*.test.ts
+*.spec.ts
+examples/test-projects/
+
+# Build artifacts
+dist
+*.log
+
+# Documentation (keep README)
+docs/*.md
+!README.md
+
+# Docker files (avoid recursion)
+Dockerfile*
+docker-compose*.yml
+docker/
+.dockerignore
+
+# Large files
+*.mp4
+*.mov
+*.zip
+*.tar.gz

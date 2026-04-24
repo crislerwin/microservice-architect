@@ -1,0 +1,89 @@
+version: "3.8"
+
+services:
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: microservice-architect-mcp
+    
+    # MCP servers communicate via stdio, so we need interactive mode
+    stdin_open: true
+    tty: true
+    
+    # Environment variables for LLM configuration
+    environment:
+      # Default to Ollama (local) - connect to host
+      - LLM_API_KEY=${LLM_API_KEY:-ollama}
+      - LLM_BASE_URL=${LLM_BASE_URL:-http://host.docker.internal:11434/v1}
+      - LLM_MODEL=${LLM_MODEL:-kimi-k2.5:cloud}
+      - USE_OLLAMA=${USE_OLLAMA:-true}
+      
+      # Alternative: OpenAI (uncomment to use)
+      # - LLM_API_KEY=${OPENAI_API_KEY}
+      # - LLM_BASE_URL=https://api.openai.com/v1
+      # - LLM_MODEL=gpt-4o-mini
+      
+    # Mount volumes for analyzing external projects
+    volumes:
+      # Mount projects you want to analyze (read-only for security)
+      - ${PROJECTS_PATH:-./examples}:/projects:ro
+      # Mount output directory for generated docs
+      - ${OUTPUT_PATH:-./output}:/output
+    
+    # Network configuration
+    # 'host' mode allows easy access to host Ollama, but only works on Linux
+    # For Mac/Windows, use host.docker.internal via extra_hosts
+    network_mode: ${NETWORK_MODE:-bridge}
+    
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 128M
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Logging
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Interactive development/testing service
+  mcp-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: microservice-architect-mcp-dev
+    profiles:
+      - dev
+    stdin_open: true
+    tty: true
+    environment:
+      - NODE_ENV=development
+      - LLM_API_KEY=${LLM_API_KEY:-ollama}
+      - LLM_BASE_URL=${LLM_BASE_URL:-http://host.docker.internal:11434/v1}
+      - LLM_MODEL=${LLM_MODEL:-kimi-k2.5:cloud}
+    volumes:
+      # Mount source code for development
+      - ./src:/app/src:ro
+      - ./package.json:/app/package.json:ro
+      # Mount projects for analysis
+      - ${PROJECTS_PATH:-./examples}:/projects:ro
+      - ${OUTPUT_PATH:-./output}:/output
+    network_mode: ${NETWORK_MODE:-bridge}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: ["sh", "-c", "bun install && bun run mcp-server"]
