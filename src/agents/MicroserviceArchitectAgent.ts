@@ -1,7 +1,6 @@
+import * as path from "node:path";
 import { type BaseMessage, HumanMessage } from "@langchain/core/messages";
 import { ChatOpenAI } from "@langchain/openai";
-import * as fs from "fs";
-import * as path from "path";
 import { ArchitectureDocumenterTool } from "../tools/ArchitectureDocumenterTool.js";
 import { DependencyMapperTool } from "../tools/DependencyMapperTool.js";
 import {
@@ -280,21 +279,5 @@ export class MicroserviceArchitectAgent {
       documentation: docs,
       workspace: workspaceAnalysis,
     };
-  }
-
-  private getServiceDirectories(projectRoot: string): string[] {
-    const entries = fs.readdirSync(projectRoot, { withFileTypes: true });
-    return entries
-      .filter((e) => e.isDirectory() && !e.name.startsWith(".") && e.name !== "node_modules")
-      .map((e) => path.join(projectRoot, e.name))
-      .filter((dir) => {
-        // Check if it looks like a service (has package.json, Dockerfile, or src folder)
-        return (
-          fs.existsSync(path.join(dir, "package.json")) ||
-          fs.existsSync(path.join(dir, "Dockerfile")) ||
-          fs.existsSync(path.join(dir, "src")) ||
-          fs.existsSync(path.join(dir, "docker-compose.yml"))
-        );
-      });
   }
 }

@@ -1,10 +1,14 @@
 #!/usr/bin/env bun
+
 /**
  * MCP Server for Microservice Architect
  *
  * Uses MCP SDK v1.x API (Server class with request handlers)
  */
 
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
@@ -12,9 +16,6 @@ import {
   ListToolsRequestSchema,
   type Tool,
 } from "@modelcontextprotocol/sdk/types.js";
-import * as fs from "fs";
-import * as path from "path";
-import { fileURLToPath } from "url";
 import { DependencyMapperTool } from "../tools/DependencyMapperTool.js";
 import { LLMCodeAnalyzerTool } from "../tools/LLMCodeAnalyzerTool.js";
 import { ProfessionalDocumenterTool } from "../tools/ProfessionalDocumenterTool.js";
@@ -339,7 +340,7 @@ export function createMCPServer(): Server {
       }
 
       // Parse and pretty-print the result
-      let parsedResult;
+      let parsedResult: unknown;
       try {
         parsedResult = JSON.parse(result);
       } catch {

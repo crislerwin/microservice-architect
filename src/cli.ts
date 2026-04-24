@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
+import * as path from "node:path";
+import { setTimeout } from "node:timers/promises";
 import * as p from "@clack/prompts";
-import * as path from "path";
-import { setTimeout } from "timers/promises";
 import { MicroserviceArchitectAgent } from "./agents/MicroserviceArchitectAgent";
 
 // Spinner animation

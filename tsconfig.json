@@ -1,22 +1,18 @@
 {
+  "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
-    // Environment setup & latest features
     "lib": ["ES2022"],
     "target": "ES2022",
-    "module": "ESNext",
-    "moduleDetection": "force",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "jsx": "react-jsx",
     "allowJs": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-
-    // Bundler mode
-    "moduleResolution": "bundler",
+    "downlevelIteration": true,
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "noEmit": true,
-
-    // Best practices
     "strict": true,
     "skipLibCheck": true,
     "noFallthroughCasesInSwitch": true,
@@ -25,19 +21,13 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-
-    // Some stricter flags (disabled for pragmatic reasons)
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false,
-
-    // Aliases
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     },
-
-    // Output for reference
     "outDir": "./dist",
     "rootDir": "./src"
   },
