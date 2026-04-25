@@ -1,0 +1,288 @@
+import { ProfessionalDocumenterTool } from "@/tools/ProfessionalDocumenterTool.ts";
+import { ChatOpenAI } from "@langchain/openai";
+import {
+  type BaseMessage,
+  HumanMessage,
+  ToolMessage,
+} from "@langchain/core/messages";
+import { ServiceAnalyzerTool } from "@/tools/ServiceAnalyzerTool.ts";
+import { DependencyMapperTool } from "@/tools/DependencyMapperTool.ts";
+import { ArchitectureDocumenterTool } from "@/tools/ArchitectureDocumenterTool.ts";
+import {
+  WorkspaceAnalyzerTool,
+  BatchServiceAnalyzerTool,
+} from "@/tools/WorkspaceAnalyzerTool.ts";
+import {
+  GraphQLAnalyzerTool,
+  FederationMapperTool,
+  DatabaseSchemaAnalyzer,
+} from "@/tools/GraphQLAnalyzerTool.ts";
+
+/**
+ * CodeArchitectAgent - An AI agent that analyzes any codebase
+ * and generates comprehensive C4 Model documentation.
+ * 
+ * Supports:
+ * - Microservices & distributed systems
+ * - Monolithic applications
+ * - Frontend apps (React, Vue, Angular, Svelte)
+ * - Libraries & packages
+ * - CLI tools & scripts
+ * - Mobile apps (React Native, Flutter)
+ * - Infrastructure (Terraform, Docker, K8s)
+ * - Serverless & FaaS
+ */
+export class CodeArchitectAgent {
+  private model: ChatOpenAI;
+  private tools = [
+    ServiceAnalyzerTool,
+    DependencyMapperTool,
+    ArchitectureDocumenterTool,
+    ProfessionalDocumenterTool,
+    WorkspaceAnalyzerTool,
+    BatchServiceAnalyzerTool,
+    GraphQLAnalyzerTool,
+    FederationMapperTool,
+    DatabaseSchemaAnalyzer,
+  ];
+  private modelWithTools;
+
+  constructor() {
+    this.model = new ChatOpenAI({
+      model: process.env.LLM_MODEL || "gpt-4o",
+      temperature: 0,
+      apiKey: process.env.LLM_API_KEY,
+      configuration: {
+        baseURL: process.env.LLM_BASE_URL,
+      },
+    });
+    this.modelWithTools = this.model.bindTools(this.tools);
+  }
+
+  async analyzeService(servicePath: string) {
+    console.log(`🔍 Analyzing service at: ${servicePath}`);
+
+    const messages: BaseMessage[] = [
+      new HumanMessage(
+        `Please analyze the microservice at path "${servicePath}". Extract its tech stack, API endpoints, databases, and dependencies.`
+      ),
+    ];
+
+    const result = await this.modelWithTools.invoke(messages);
+
+    if (result.tool_calls && result.tool_calls.length > 0) {
+      const toolCall = result.tool_calls[0];
+      if (toolCall.name === "analyze_service") {
+        const output = await ServiceAnalyzerTool.invoke(toolCall.args);
+        return JSON.parse(output);
+      }
+    }
+
+    return null;
+  }
+
+  async mapDependencies(projectRoot: string) {
+    console.log(`🔗 Mapping dependencies for project at: ${projectRoot}`);
+
+    const messages: BaseMessage[] = [
+      new HumanMessage(
+        `Please map all dependencies between microservices in the project at "${projectRoot}". Identify HTTP calls, shared databases, and message queue connections.`
+      ),
+    ];
+
+    const result = await this.modelWithTools.invoke(messages);
+
+    if (result.tool_calls && result.tool_calls.length > 0) {
+      const toolCall = result.tool_calls[0];
+      if (toolCall.name === "map_dependencies") {
+        const output = await DependencyMapperTool.invoke(toolCall.args);
+        return JSON.parse(output);
+      }
+    }
+
+    return null;
+  }
+
+  async generateProfessionalDocumentation(
+    outputPath: string,
+    servicesData: object,
+    dependenciesData: object,
+    projectRoot: string
+  ) {
+    console.log(`📝 Generating professional architecture documentation...`);
+
+    const args = {
+      outputPath,
+      projectPath: projectRoot,
+      servicesData: JSON.stringify(servicesData),
+      dependenciesData: JSON.stringify(dependenciesData),
+    };
+
+    const output = await ProfessionalDocumenterTool.invoke(args);
+    return JSON.parse(output);
+  }
+
+  async generateDocumentation(
+    outputPath: string,
+    servicesData: object,
+    dependenciesData: object
+  ) {
+    console.log(`📝 Generating documentation at: ${outputPath}`);
+
+    const messages: BaseMessage[] = [
+      new HumanMessage(
+        `Please generate comprehensive architecture documentation at "${outputPath}" using the provided service analysis and dependency data.`
+      ),
+    ];
+
+    const result = await this.modelWithTools.invoke(messages);
+
+    if (result.tool_calls && result.tool_calls.length > 0) {
+      const toolCall = result.tool_calls[0];
+      if (toolCall.name === "document_architecture") {
+        const args = {
+          ...toolCall.args,
+          servicesData: JSON.stringify(servicesData),
+          dependenciesData: JSON.stringify(dependenciesData),
+        };
+        const output = await ArchitectureDocumenterTool.invoke(args);
+        return JSON.parse(output);
+      }
+    }
+
+    return null;
+  }
+
+  async analyzeWorkspace(workspacePath: string) {
+    console.log(`📁 Analyzing workspace at: ${workspacePath}`);
+
+    const messages: BaseMessage[] = [
+      new HumanMessage(
+        `Please analyze the workspace at path "${workspacePath}". Detect all microservice directories and extract workspace-level information.`
+      ),
+    ];
+
+    const result = await this.modelWithTools.invoke(messages);
+
+    if (result.tool_calls && result.tool_calls.length > 0) {
+      const toolCall = result.tool_calls[0];
+      if (toolCall.name === "analyze_workspace") {
+        const output = await WorkspaceAnalyzerTool.invoke(toolCall.args);
+        return JSON.parse(output);
+      }
+    }
+
+    return null;
+  }
+
+  async analyzeServicesBatch(servicePaths: string[]) {
+    console.log(`📦 Analyzing batch of ${servicePaths.length} services`);
+
+    const messages: BaseMessage[] = [
+      new HumanMessage(
+        `Please analyze this batch of ${servicePaths.length} services. Extract basic information from each service.`
+      ),
+    ];
+
+    const result = await this.modelWithTools.invoke(messages);
+
+    if (result.tool_calls && result.tool_calls.length > 0) {
+      const toolCall = result.tool_calls[0];
+      if (toolCall.name === "analyze_services_batch") {
+        const output = await BatchServiceAnalyzerTool.invoke(toolCall.args);
+        return JSON.parse(output);
+      }
+    }
+
+    return null;
+  }
+
+  async runFullAnalysis(projectRoot: string, outputPath: string) {
+    console.log("🚀 Starting full microservice architecture analysis...\n");
+
+    // Step 1: Analyze workspace to discover services
+    const workspaceAnalysis = await this.analyzeWorkspace(projectRoot);
+    
+    if (!workspaceAnalysis || workspaceAnalysis.totalServices === 0) {
+      console.log("⚠️ No services found in workspace");
+      return { services: {}, dependencies: {}, documentation: null };
+    }
+
+    console.log(`📊 Found ${workspaceAnalysis.totalServices} services in workspace`);
+
+    // Step 2: Analyze each service in detail
+    const services: Record<string, any> = {};
+    const servicePaths = workspaceAnalysis.services.map((s: any) => s.path);
+    
+    console.log(`🔍 Analyzing ${servicePaths.length} services individually...`);
+    
+    // Analyze each service individually (more reliable than batch)
+    for (const servicePath of servicePaths) {
+      const serviceName = path.basename(servicePath);
+      console.log(`  Analyzing ${serviceName}...`);
+      
+      const serviceData = await this.analyzeService(servicePath);
+      if (serviceData) {
+        services[serviceName] = serviceData;
+        console.log(`    ✓ Found: ${serviceName}`);
+      } else {
+        // Fallback: create basic service info
+        services[serviceName] = {
+          name: serviceName,
+          path: servicePath,
+          description: "Service detected in workspace",
+          techStack: ["Unknown"],
+          databases: [],
+          endpoints: [],
+        };
+        console.log(`    ⚠ Basic info for: ${serviceName}`);
+      }
+    }
+    
+    console.log(`✅ Analyzed ${Object.keys(services).length} services`);
+
+    // Step 3: Map dependencies
+    const dependencies = await this.mapDependencies(projectRoot);
+
+    // Step 4: Generate documentation
+    const docs = await this.generateProfessionalDocumentation(
+      outputPath,
+      services,
+      dependencies || {},
+      projectRoot
+    );
+
+    return {
+      services,
+      dependencies,
+      documentation: docs,
+      workspace: workspaceAnalysis,
+    };
+  }
+
+  private getServiceDirectories(projectRoot: string): string[] {
+    const fs = require("fs");
+    const path = require("path");
+
+    const entries = fs.readdirSync(projectRoot, { withFileTypes: true });
+    return entries
+      .filter(
+        (e: any) =>
+          e.isDirectory() &&
+          !e.name.startsWith(".") &&
+          e.name !== "node_modules"
+      )
+      .map((e: any) => path.join(projectRoot, e.name))
+      .filter((dir: string) => {
+        // Check if it looks like a service (has package.json, Dockerfile, or src folder)
+        return (
+          fs.existsSync(path.join(dir, "package.json")) ||
+          fs.existsSync(path.join(dir, "Dockerfile")) ||
+          fs.existsSync(path.join(dir, "src")) ||
+          fs.existsSync(path.join(dir, "docker-compose.yml"))
+        );
+      });
+  }
+}
+
+import * as path from "path";

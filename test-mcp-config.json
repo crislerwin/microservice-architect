@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "microservice-architect": {
+      "command": "bun",
+      "args": ["run", "/home/droid/.openclaw/workspace/microservice-architect/src/mcp/index.ts"],
+      "env": {
+        "LLM_API_KEY": "ollama",
+        "LLM_BASE_URL": "http://localhost:11434/v1",
+        "LLM_MODEL": "kimi-k2.5:cloud"
+      },
+      "description": "AI agent for analyzing microservice architectures and generating C4 Model documentation"
+    }
+  }
+}
