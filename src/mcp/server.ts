@@ -505,6 +505,7 @@ export async function startServer(): Promise<void> {
   console.error("  - analyze_service: Analyze a single microservice");
   console.error("  - analyze_workspace: Analyze a workspace with multiple services");
   console.error("  - analyze_code_llm: LLM-powered codebase analysis");
+  console.error("  - analyze_code_quality: Static code quality analysis (complexity, DRY, smells)");
   console.error("  - map_dependencies: Map dependencies between services");
   console.error("  - generate_documentation: Generate comprehensive docs");
   console.error("\nServer ready! Waiting for MCP client connections...\n");
