@@ -3,7 +3,6 @@ import { ChatOpenAI } from "@langchain/openai";
 import {
   type BaseMessage,
   HumanMessage,
-  ToolMessage,
 } from "@langchain/core/messages";
 import { ServiceAnalyzerTool } from "@/tools/ServiceAnalyzerTool.ts";
 import { DependencyMapperTool } from "@/tools/DependencyMapperTool.ts";
@@ -17,6 +16,8 @@ import {
   FederationMapperTool,
   DatabaseSchemaAnalyzer,
 } from "@/tools/GraphQLAnalyzerTool.ts";
+import { CodeQualityAnalyzerTool } from "@/tools/CodeQualityAnalyzerTool.ts";
+import * as path from "path";
 
 /**
  * CodeArchitectAgent - An AI agent that analyzes any codebase
@@ -44,6 +45,7 @@ export class CodeArchitectAgent {
     GraphQLAnalyzerTool,
     FederationMapperTool,
     DatabaseSchemaAnalyzer,
+    CodeQualityAnalyzerTool,
   ];
   private modelWithTools;
 
@@ -284,5 +286,3 @@ export class CodeArchitectAgent {
       });
   }
 }
-
-import * as path from "path";

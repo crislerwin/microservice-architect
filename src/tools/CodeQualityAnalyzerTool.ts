@@ -78,7 +78,6 @@ export interface CodeQualityReport {
 export interface AnalyzerConfig {
   complexityThreshold: number;
   minDuplicateLines: number;
-  similarityThreshold: number;
   maxFileLines: number;
   maxFunctionLines: number;
   includeTests: boolean;
@@ -89,7 +88,6 @@ export interface AnalyzerConfig {
 const DEFAULT_CONFIG: AnalyzerConfig = {
   complexityThreshold: 15,
   minDuplicateLines: 5,
-  similarityThreshold: 0.8,
   maxFileLines: 500,
   maxFunctionLines: 50,
   includeTests: false,
@@ -618,7 +616,6 @@ export const CodeQualityAnalyzerTool = tool(
         .object({
           complexityThreshold: z.number().optional().describe("Cyclomatic complexity threshold"),
           minDuplicateLines: z.number().optional().describe("Minimum lines for duplicate detection"),
-          similarityThreshold: z.number().optional().describe("Similarity threshold (0-1)"),
           maxFileLines: z.number().optional().describe("Maximum lines per file"),
           maxFunctionLines: z.number().optional().describe("Maximum lines per function"),
           includeTests: z.boolean().optional().describe("Include test files"),

@@ -18,5 +18,3 @@ export function createLogger(namespace: string) {
     },
   };
 }
-
-export default { createLogger };
