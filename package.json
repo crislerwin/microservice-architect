@@ -27,7 +27,7 @@
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
     "@types/node": "^20",
-    "typescript": "^5"
+    "typescript": "^6"
   },
   "dependencies": {
     "@clack/prompts": "^0.10.1",
