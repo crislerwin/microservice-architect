@@ -16,6 +16,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprot
 import { DependencyMapperTool } from "../tools/DependencyMapperTool.js";
 import { LLMCodeAnalyzerTool } from "../tools/LLMCodeAnalyzerTool.js";
 import { ProfessionalDocumenterTool } from "../tools/ProfessionalDocumenterTool.js";
+import { CodeQualityAnalyzerTool } from "../tools/CodeQualityAnalyzerTool.js";
 // Import the tools from the existing codebase
 import { ServiceAnalyzerTool } from "../tools/ServiceAnalyzerTool.js";
 import { WorkspaceAnalyzerTool } from "../tools/WorkspaceAnalyzerTool.js";
@@ -106,6 +107,56 @@ const tools: Tool[] = [
         },
       },
       required: ["outputPath", "projectPath"],
+    },
+  },
+  {
+    name: "analyze_code_quality",
+    description:
+      "Analyzes source code for software engineering principle violations including DRY (duplicate code), cyclomatic complexity, circular dependencies, code smells (God classes, long functions, deep nesting), and unused imports. Generates detailed quality reports with refactoring suggestions.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        servicePath: {
+          type: "string",
+          description: "Absolute path to the service directory to analyze",
+        },
+        serviceName: {
+          type: "string",
+          description: "Name of the service (for reporting)",
+        },
+        config: {
+          type: "object",
+          properties: {
+            complexityThreshold: {
+              type: "number",
+              description: "Cyclomatic complexity threshold (default: 15)",
+              default: 15,
+            },
+            minDuplicateLines: {
+              type: "number",
+              description: "Minimum lines for duplicate detection (default: 5)",
+              default: 5,
+            },
+            maxFileLines: {
+              type: "number",
+              description: "Maximum lines per file before warning (default: 500)",
+              default: 500,
+            },
+            maxFunctionLines: {
+              type: "number",
+              description: "Maximum lines per function (default: 50)",
+              default: 50,
+            },
+            includeTests: {
+              type: "boolean",
+              description: "Include test files in analysis (default: false)",
+              default: false,
+            },
+          },
+          description: "Configuration options",
+        },
+      },
+      required: ["servicePath", "serviceName"],
     },
   },
 ];
@@ -318,6 +369,65 @@ export function createMCPServer(): Server {
           });
 
           result = docsResult;
+          break;
+        }
+
+        case "analyze_code_quality": {
+          const { servicePath, serviceName, config } = args as {
+            servicePath: string;
+            serviceName: string;
+            config?: {
+              complexityThreshold?: number;
+              minDuplicateLines?: number;
+              maxFileLines?: number;
+              maxFunctionLines?: number;
+              includeTests?: boolean;
+            };
+          };
+
+          if (!servicePath) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(
+                    {
+                      error: `Missing required parameter: servicePath`,
+                      hint: "Please provide the servicePath parameter",
+                    },
+                    null,
+                    2,
+                  ),
+                },
+              ],
+              isError: true,
+            };
+          }
+
+          if (!fs.existsSync(servicePath)) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(
+                    {
+                      error: `Path does not exist: ${servicePath}`,
+                      hint: "Please provide an absolute path to the service directory",
+                    },
+                    null,
+                    2,
+                  ),
+                },
+              ],
+              isError: true,
+            };
+          }
+
+          result = await CodeQualityAnalyzerTool.invoke({
+            servicePath,
+            serviceName: serviceName || "unnamed-service",
+            config,
+          });
           break;
         }
 
