@@ -32,7 +32,7 @@
   "dependencies": {
     "@clack/prompts": "^0.10.1",
     "@langchain/core": "^1.1.8",
-    "@langchain/openai": "^1.2.0",
+    "@langchain/openai": "^1.4.5",
     "@modelcontextprotocol/sdk": "^1.10.2",
     "langchain": "^1.2.3",
     "zod": "^3.22.4"
